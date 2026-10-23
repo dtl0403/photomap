@@ -782,6 +782,16 @@ button { cursor: pointer; }
 #period .pl { font-size: 12px; font-weight: 800; color: var(--accent); }
 #period input { min-width: 0; width: 100%; box-sizing: border-box; min-height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--bg); color: var(--fg); padding: 0 8px; font-size: 16px; font-variant-numeric: tabular-nums; }
 #period .u { color: var(--sub); font-size: 14px; }
+#period .fld { position: relative; min-width: 0; }
+#period .fld input { padding-right: 34px; }
+#period .fld::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--accent); font-size: 15px; pointer-events: none; }
+#period .fld select { position: absolute; top: 0; right: 0; bottom: 0; width: 38px; opacity: 0; font-size: 16px; }
+#menubtn { min-width: 40px; justify-content: center; font-size: 18px; padding: 0 10px; }
+#menubtn[aria-expanded="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+#psum { display: block; margin-top: -4px; width: 100%; text-align: left; border: 0; background: none; padding: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+#psum b { color: var(--accent); font-weight: 700; }
+#filters { display: flex; flex-direction: column; gap: 8px; }
+#filters[hidden] { display: none !important; }
 .prow2 { display: flex; gap: 6px; align-items: center; }
 .prow2 .pinfo { flex: 1; min-width: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pbtn { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--chip); font-size: 13px; }
@@ -886,6 +896,7 @@ button { cursor: pointer; }
 <div id="app">
   <div id="top">
     <div class="row1">
+      <button type="button" class="btn" id="menubtn" aria-label="表示する期間と検索" aria-expanded="false" aria-controls="filters">☰</button>
       <div class="brand">
         <h1>写真マップ</h1>
         <div id="dsname">見本のデータを表示中</div>
@@ -894,16 +905,17 @@ button { cursor: pointer; }
       <label class="btn primary" for="pick">ファイルを開く</label>
       <input id="pick" class="vh" type="file">
     </div>
+    <button type="button" id="psum" aria-label="表示する期間と検索を開く"></button>
     <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません。</div>
+    <div id="filters" hidden>
     <div id="period" role="group" aria-label="表示する期間">
       <input type="hidden" id="pfrom"><input type="hidden" id="pto">
       <span class="pl">開始</span>
-      <input id="fy" inputmode="numeric" list="ylist" autocomplete="off" placeholder="年" aria-label="開始の年"><span class="u">年</span>
-      <input id="fm" inputmode="numeric" list="fmlist" autocomplete="off" placeholder="月" aria-label="開始の月"><span class="u">月</span>
+      <span class="fld"><input id="fy" inputmode="numeric" autocomplete="off" placeholder="年" aria-label="開始の年"><select id="fys" aria-label="開始の年を一覧から選ぶ"></select></span><span class="u">年</span>
+      <span class="fld"><input id="fm" inputmode="numeric" autocomplete="off" placeholder="月" aria-label="開始の月"><select id="fms" aria-label="開始の月を一覧から選ぶ"></select></span><span class="u">月</span>
       <span class="pl">終了</span>
-      <input id="ty" inputmode="numeric" list="ylist" autocomplete="off" placeholder="年" aria-label="終了の年"><span class="u">年</span>
-      <input id="tm" inputmode="numeric" list="tmlist" autocomplete="off" placeholder="月" aria-label="終了の月"><span class="u">月</span>
-      <datalist id="ylist"></datalist><datalist id="fmlist"></datalist><datalist id="tmlist"></datalist>
+      <span class="fld"><input id="ty" inputmode="numeric" autocomplete="off" placeholder="年" aria-label="終了の年"><select id="tys" aria-label="終了の年を一覧から選ぶ"></select></span><span class="u">年</span>
+      <span class="fld"><input id="tm" inputmode="numeric" autocomplete="off" placeholder="月" aria-label="終了の月"><select id="tms" aria-label="終了の月を一覧から選ぶ"></select></span><span class="u">月</span>
     </div>
     <div class="prow2">
       <button type="button" class="pbtn" id="pprev" aria-label="期間を前にずらす">‹ 前へ</button>
@@ -914,6 +926,7 @@ button { cursor: pointer; }
     <div class="row2">
       <label class="vh" for="q">キーワード</label>
       <input id="q" type="search" placeholder="地名・ファイル名・日付で探す" autocomplete="off">
+    </div>
     </div>
   </div>
   <div id="main">
@@ -1192,12 +1205,13 @@ function buildMonths(items) {
   MONTHS = out; MCOUNT = n;
   const yc = {};
   out.forEach(ym => { const y = ym.slice(0, 4); yc[y] = (yc[y] || 0) + n[ym]; });
-  $("ylist").innerHTML = Object.keys(yc).sort().map(y => `<option value="${y}">${y}年(${yc[y].toLocaleString()}件)</option>`).join("");
+  const yopts = `<option value="" disabled>年を選ぶ</option>` + Object.keys(yc).sort().map(y => `<option value="${y}">${y}年(${yc[y].toLocaleString()}件)</option>`).join("");
+  $("fys").innerHTML = yopts; $("tys").innerHTML = yopts;
 }
 let MCOUNT = {};
 // 年を選んだら、その年の写真のある月だけを候補に出す
 function monthList(id, y) {
-  $(id).innerHTML = MONTHS.filter(ym => ym.slice(0, 4) === y)
+  $(id).innerHTML = `<option value="" disabled>月を選ぶ</option>` + MONTHS.filter(ym => ym.slice(0, 4) === y)
     .map(ym => `<option value="${+ym.slice(5, 7)}">${+ym.slice(5, 7)}月(${MCOUNT[ym].toLocaleString()}件)</option>`).join("");
 }
 function syncPeriodInputs() {
@@ -1205,7 +1219,8 @@ function syncPeriodInputs() {
   if (!f || !t) { ["fy", "fm", "ty", "tm"].forEach(id => $(id).value = ""); return; }
   $("fy").value = f.slice(0, 4); $("fm").value = +f.slice(5, 7);
   $("ty").value = t.slice(0, 4); $("tm").value = +t.slice(5, 7);
-  monthList("fmlist", f.slice(0, 4)); monthList("tmlist", t.slice(0, 4));
+  monthList("fms", f.slice(0, 4)); monthList("tms", t.slice(0, 4));
+  [["fys", f.slice(0, 4)], ["fms", String(+f.slice(5, 7))], ["tys", t.slice(0, 4)], ["tms", String(+t.slice(5, 7))]].forEach(([id, v]) => { $(id).value = v; });
 }
 // 手で打った値を読む(全角数字・「年」「月」付き・2 桁の年も受け付ける)
 function num(v) {
@@ -1247,8 +1262,21 @@ function shiftPeriod(dir) {
   $(id).addEventListener("focus", () => $(id).select());
 });
 // 年を変えたら、月の候補をその年のものに入れ替える(確定は入力を終えたとき)
-$("fy").addEventListener("input", () => { const y = num($("fy").value); if (y) monthList("fmlist", String(y < 100 ? y + 2000 : y)); });
-$("ty").addEventListener("input", () => { const y = num($("ty").value); if (y) monthList("tmlist", String(y < 100 ? y + 2000 : y)); });
+$("fy").addEventListener("input", () => { const y = num($("fy").value); if (y) monthList("fms", String(y < 100 ? y + 2000 : y)); });
+$("ty").addEventListener("input", () => { const y = num($("ty").value); if (y) monthList("tms", String(y < 100 ? y + 2000 : y)); });
+// 一覧(プルダウン)から選んだとき: 年を変えたら月はその年の最初(開始)/最後(終了)にする
+$("fys").addEventListener("change", () => { $("fy").value = $("fys").value; $("fm").value = ""; readPeriodInputs(); });
+$("tys").addEventListener("change", () => { $("ty").value = $("tys").value; $("tm").value = ""; readPeriodInputs(); });
+$("fms").addEventListener("change", () => { $("fm").value = $("fms").value; readPeriodInputs(); });
+$("tms").addEventListener("change", () => { $("tm").value = $("tms").value; readPeriodInputs(); });
+// ☰ で期間と検索を出し入れする(ふだんは上に小さく表示期間だけ)
+function setFilters(open) {
+  $("filters").hidden = !open;
+  $("menubtn").setAttribute("aria-expanded", String(open));
+  setTimeout(() => map.invalidateSize(), 50);
+}
+$("menubtn").onclick = () => setFilters($("filters").hidden);
+$("psum").onclick = () => setFilters(true);
 $("pall").onclick = () => setPeriod(MONTHS[0], MONTHS[MONTHS.length - 1], true);
 $("pprev").onclick = () => shiftPeriod(-1);
 $("pnext").onclick = () => shiftPeriod(1);
@@ -1264,6 +1292,9 @@ function apply(fit) {
     $("pprev").disabled = whole || i === 0;
     $("pnext").disabled = whole || j === MONTHS.length - 1;
   }
+  const fl = ym => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
+  $("psum").innerHTML = (MONTHS.length ? (whole ? "期間: <b>全期間</b>" : `期間: <b>${fl(from)}${from === to ? "" : "〜" + fl(to)}</b>`) : "") +
+    (words.length ? ` ・ 検索: <b>${esc($("q").value.trim())}</b>` : "");
   rebuildIndex();
   $("count").textContent = `${shown.length.toLocaleString()} 件` + (ds.nogps ? ` ・位置情報なし ${ds.nogps.toLocaleString()} 件` : "");
   $("pworld").hidden = !shown.length;
