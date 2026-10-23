@@ -778,10 +778,10 @@ button { cursor: pointer; }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 700; }
 .row2 { display: flex; gap: 8px; }
 #q { flex: 1; min-width: 0; min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--chip); padding: 0 12px; font-size: 16px; }
-#period { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; }
+#period { display: grid; grid-template-columns: auto minmax(0, 1.4fr) auto minmax(0, 1fr) auto; gap: 6px 6px; align-items: center; }
 #period .pl { font-size: 12px; font-weight: 800; color: var(--accent); }
-#period select { min-width: 0; min-height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--bg); padding: 0 6px; font-size: 15px; font-variant-numeric: tabular-nums; }
-#period .tilde { color: var(--sub); }
+#period input { min-width: 0; width: 100%; box-sizing: border-box; min-height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--bg); color: var(--fg); padding: 0 8px; font-size: 16px; font-variant-numeric: tabular-nums; }
+#period .u { color: var(--sub); font-size: 14px; }
 .prow2 { display: flex; gap: 6px; align-items: center; }
 .prow2 .pinfo { flex: 1; min-width: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pbtn { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--chip); font-size: 13px; }
@@ -864,7 +864,13 @@ button { cursor: pointer; }
 #toast[hidden] { display: none !important; }
 #loading { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
 #loading[hidden] { display: none !important; }
-#loading div { background: var(--bg); color: var(--fg); padding: 16px 20px; border-radius: 12px; font-size: 15px; box-shadow: var(--shadow); }
+#resume, #askrem { position: fixed; inset: 0; z-index: 2600; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#resume[hidden], #askrem[hidden] { display: none !important; }
+#resume .box, #askrem .box { background: var(--bg); color: var(--fg); padding: 18px; border-radius: 14px; box-shadow: var(--shadow); max-width: 420px; width: 100%; box-sizing: border-box; }
+#resume h2, #askrem h2 { margin: 0 0 8px; font-size: 17px; }
+#resume p, #askrem p { margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: var(--sub); }
+#resume .row, #askrem .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+#loading div { white-space: pre-line; background: var(--bg); color: var(--fg); padding: 16px 20px; border-radius: 12px; font-size: 15px; box-shadow: var(--shadow); }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 @media (min-width: 900px) {
@@ -890,12 +896,14 @@ button { cursor: pointer; }
     </div>
     <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません。</div>
     <div id="period" role="group" aria-label="表示する期間">
-      <span class="pl">期間</span>
-      <label class="vh" for="pfrom">開始の年月</label>
-      <select id="pfrom"></select>
-      <span class="tilde" aria-hidden="true">〜</span>
-      <label class="vh" for="pto">終了の年月</label>
-      <select id="pto"></select>
+      <input type="hidden" id="pfrom"><input type="hidden" id="pto">
+      <span class="pl">開始</span>
+      <input id="fy" inputmode="numeric" list="ylist" autocomplete="off" placeholder="年" aria-label="開始の年"><span class="u">年</span>
+      <input id="fm" inputmode="numeric" list="fmlist" autocomplete="off" placeholder="月" aria-label="開始の月"><span class="u">月</span>
+      <span class="pl">終了</span>
+      <input id="ty" inputmode="numeric" list="ylist" autocomplete="off" placeholder="年" aria-label="終了の年"><span class="u">年</span>
+      <input id="tm" inputmode="numeric" list="tmlist" autocomplete="off" placeholder="月" aria-label="終了の月"><span class="u">月</span>
+      <datalist id="ylist"></datalist><datalist id="fmlist"></datalist><datalist id="tmlist"></datalist>
     </div>
     <div class="prow2">
       <button type="button" class="pbtn" id="pprev" aria-label="期間を前にずらす">‹ 前へ</button>
@@ -957,15 +965,35 @@ button { cursor: pointer; }
     <label class="opt"><input type="radio" name="tapmode" value="preview" id="tm-preview">
       <span><b>この画面でプレビューを見る</b><br>縮小した画像と、撮影日時・場所を表示します。そこからも［元のファイルを開く］ができます</span></label>
     <h3>しくみ</h3>
-    <p class="muted">タップすると、ドライブの番号とファイルの場所から「ファイル」アプリで元のファイルを直接開きます。準備はいりません。初めてのときは「"ファイル"で開きますか？」と聞かれるので［開く］を押してください。</p>
+    <p class="muted">タップすると、ドライブの番号とファイルの場所から「ファイル」アプリで元のファイルを直接開きます。初めてのときは「"ファイル"で開きますか？」と聞かれるので［開く］を押してください。見終わったら左上の「◀ Safari」で地図に戻ります。</p>
+    <p class="muted">パソコンでドライブの中身を変えたあと、「ファイル」アプリで違うフォルダの中身が見えたり開けなかったりするときは、［設定］→［一般］→［iPhone ストレージ］→［ファイル］→［App を取り除く］のあと入れ直してください。</p>
     <div class="row"><a class="btn" id="settest" target="_blank" rel="noopener">試す(T7 のいちばん上を開く)</a></div>
     <p class="muted">ドライブの番号: <span id="vuinfo">—</span></p>
-    <h3>開く場所の診断</h3>
-    <p class="muted">直前に見た写真で試します。1 つずつ押して、「ファイル」アプリで<b>どこが開いたか</b>(T7 のいちばん上／そのフォルダ／写真そのもの)を確かめてください。</p>
-    <ol id="diag"></ol>
+    <h3>前回のデータ</h3>
+    <p class="muted">一度読み込んだ .pmap は、この iPhone の中(このページ用の保存場所)に覚えておき、次に開いたときにすぐ表示できます。ドライブをつないでいなくても地図は見られます。ホーム画面に追加したアイコンから開くと、覚えたデータが消えにくくなります。<br><span id="savedinfo">—</span></p>
+    <p class="muted" style="margin-bottom:4px">読み込んだ .pmap を覚えるか:</p>
+    <label class="opt"><input type="radio" name="remmode" value="ask" id="rm-ask"><span><b>毎回聞く</b></span></label>
+    <label class="opt"><input type="radio" name="remmode" value="always" id="rm-always"><span><b>いつも覚える</b>(次からすぐ開ける・iPhone の容量を使う)</span></label>
+    <label class="opt"><input type="radio" name="remmode" value="never" id="rm-never"><span><b>覚えない</b>(容量を使わない・毎回ファイルを選ぶ)</span></label>
+    <div class="row"><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
   </div>
 </div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
+<div id="askrem" hidden role="dialog" aria-modal="true" aria-labelledby="artitle">
+  <div class="box">
+    <h2 id="artitle">次回すぐ開けるように覚えますか？</h2>
+    <p id="arinfo"></p>
+    <label style="display:flex;gap:8px;align-items:center;margin:0 0 14px;font-size:14px"><input type="checkbox" id="arkeep"> 次から聞かない(この選び方を使う)</label>
+    <div class="row"><button type="button" class="btn" id="arno">覚えない</button><button type="button" class="btn primary" id="aryes">覚える</button></div>
+  </div>
+</div>
+<div id="resume" hidden role="dialog" aria-modal="true" aria-labelledby="rstitle">
+  <div class="box">
+    <h2 id="rstitle">前回のデータを開きますか？</h2>
+    <p id="rsinfo"></p>
+    <div class="row"><button type="button" class="btn" id="rsno">開かない</button><button type="button" class="btn primary" id="rsyes">開く</button></div>
+  </div>
+</div>
 <div id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1161,9 +1189,42 @@ function buildMonths(items) {
   const out = [...new Set(items.map(it => it.d.slice(0, 7)).filter(Boolean))].sort();   // 写真のある月だけ
   const n = {};
   items.forEach(it => { const k = it.d.slice(0, 7); n[k] = (n[k] || 0) + 1; });
-  const opts = out.map(ym => `<option value="${ym}">${mLabel(ym)}(${n[ym].toLocaleString()})</option>`).join("");
-  $("pfrom").innerHTML = opts; $("pto").innerHTML = opts;
-  MONTHS = out;
+  MONTHS = out; MCOUNT = n;
+  const yc = {};
+  out.forEach(ym => { const y = ym.slice(0, 4); yc[y] = (yc[y] || 0) + n[ym]; });
+  $("ylist").innerHTML = Object.keys(yc).sort().map(y => `<option value="${y}">${y}年(${yc[y].toLocaleString()}件)</option>`).join("");
+}
+let MCOUNT = {};
+// 年を選んだら、その年の写真のある月だけを候補に出す
+function monthList(id, y) {
+  $(id).innerHTML = MONTHS.filter(ym => ym.slice(0, 4) === y)
+    .map(ym => `<option value="${+ym.slice(5, 7)}">${+ym.slice(5, 7)}月(${MCOUNT[ym].toLocaleString()}件)</option>`).join("");
+}
+function syncPeriodInputs() {
+  const f = $("pfrom").value, t = $("pto").value;
+  if (!f || !t) { ["fy", "fm", "ty", "tm"].forEach(id => $(id).value = ""); return; }
+  $("fy").value = f.slice(0, 4); $("fm").value = +f.slice(5, 7);
+  $("ty").value = t.slice(0, 4); $("tm").value = +t.slice(5, 7);
+  monthList("fmlist", f.slice(0, 4)); monthList("tmlist", t.slice(0, 4));
+}
+// 手で打った値を読む(全角数字・「年」「月」付き・2 桁の年も受け付ける)
+function num(v) {
+  const s = String(v || "").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, "");
+  return s ? +s : null;
+}
+const pad = m => String(m).padStart(2, "0");
+function readPeriodInputs() {
+  if (!MONTHS.length) return;
+  let fy = num($("fy").value), fm = num($("fm").value), ty = num($("ty").value), tm = num($("tm").value);
+  if (fy !== null && fy < 100) fy += 2000;
+  if (ty !== null && ty < 100) ty += 2000;
+  if (fm !== null && (fm < 1 || fm > 12)) fm = null;
+  if (tm !== null && (tm < 1 || tm > 12)) tm = null;
+  // 開始: 指定した年月以降で、写真のある最初の月 / 終了: 指定した年月以前で、写真のある最後の月
+  let from = $("pfrom").value, to = $("pto").value;
+  if (fy !== null) { const k = `${fy}-${pad(fm || 1)}`; from = MONTHS.find(ym => ym >= k) || MONTHS[MONTHS.length - 1]; }
+  if (ty !== null) { const k = `${ty}-${pad(tm || 12)}`; to = [...MONTHS].reverse().find(ym => ym <= k) || MONTHS[0]; }
+  setPeriod(from, to, true);
 }
 function setPeriod(a, b, fit) {
   if (!MONTHS.length) { apply(fit); return; }
@@ -1171,6 +1232,7 @@ function setPeriod(a, b, fit) {
   $("pfrom").value = MONTHS.includes(a) ? a : MONTHS[0];
   $("pto").value = MONTHS.includes(b) ? b : MONTHS[MONTHS.length - 1];
   if (!ds.sample) store.set("period:" + ds.root, [$("pfrom").value, $("pto").value]);
+  syncPeriodInputs();
   $("sheet").hidden = true;          // 期間が変わったら前の一覧は閉じる
   apply(fit);
 }
@@ -1179,8 +1241,14 @@ function shiftPeriod(dir) {
   const ni = Math.max(0, Math.min(MONTHS.length - len, i + dir * len));
   setPeriod(MONTHS[ni], MONTHS[ni + len - 1], true);
 }
-$("pfrom").addEventListener("change", () => setPeriod($("pfrom").value, $("pto").value, true));
-$("pto").addEventListener("change", () => setPeriod($("pfrom").value, $("pto").value, true));
+["fy", "fm", "ty", "tm"].forEach(id => {
+  $(id).addEventListener("change", readPeriodInputs);
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id).blur(); } });
+  $(id).addEventListener("focus", () => $(id).select());
+});
+// 年を変えたら、月の候補をその年のものに入れ替える(確定は入力を終えたとき)
+$("fy").addEventListener("input", () => { const y = num($("fy").value); if (y) monthList("fmlist", String(y < 100 ? y + 2000 : y)); });
+$("ty").addEventListener("input", () => { const y = num($("ty").value); if (y) monthList("tmlist", String(y < 100 ? y + 2000 : y)); });
 $("pall").onclick = () => setPeriod(MONTHS[0], MONTHS[MONTHS.length - 1], true);
 $("pprev").onclick = () => shiftPeriod(-1);
 $("pnext").onclick = () => shiftPeriod(1);
@@ -1246,24 +1314,130 @@ function useDataset(d) {
   else setPeriod(MONTHS[0], MONTHS[MONTHS.length - 1], true);
 }
 
-$("pick").addEventListener("change", async e => {
-  const f = e.target.files && e.target.files[0];
-  e.target.value = "";
-  if (!f) return;
-  $("loadmsg").textContent = `「${f.name}」を読み込んでいます…`;
-  $("loading").hidden = false;
+// ---------- 前回のデータを覚えておく(外付けドライブを毎回選ばなくてよいように) ----------
+const idb = {
+  open() {
+    return new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open("photomap", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+  },
+  async run(mode, fn) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction("kv", mode), st = tx.objectStore("kv"), q = fn(st);
+      tx.oncomplete = () => { db.close(); res(q && q.result); };
+      tx.onerror = tx.onabort = () => { db.close(); rej(tx.error); };
+    });
+  },
+  get(k) { return this.run("readonly", st => st.get(k)); },
+  set(k, v) { return this.run("readwrite", st => st.put(v, k)); },
+  del(k) { return this.run("readwrite", st => st.delete(k)); },
+};
+const sizeText = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB";
+async function rememberPack(file, d) {
   try {
-    const d = await readPack(f);
-    $("loadmsg").textContent = `${d.items.length.toLocaleString()} 件を地図に並べています…`;
+    const old = await idb.get("meta").catch(() => null);
+    if (old && old.name === file.name && old.size === file.size && old.lastModified === file.lastModified) return;
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+    // 中身を iPhone の中にコピーしてから覚える(外付けドライブを外しても読めるように)
+    await idb.set("blob", file);     // Safari はファイルの中身ごと保存する(メモリに全部は読み込まない)
+    await idb.set("meta", {name: file.name, size: file.size, lastModified: file.lastModified, root: d.root,
+                           count: d.items.length, made: d.made || "", savedAt: new Date().toISOString()});
+    toast("次回はこのデータをすぐ開けるように覚えました");
+  } catch (e) {
+    toast("この iPhone の空きが足りず、データを覚えられませんでした(次回もファイルを選んでください)");
+  }
+}
+let remMode = store.get("remMode", "ask");
+function setRemMode(m) {
+  remMode = m; store.set("remMode", m);
+  ["ask", "always", "never"].forEach(k => { const r = $("rm-" + k); if (r) r.checked = k === m; });
+}
+async function maybeRemember(file, d) {
+  if (remMode === "never") return;
+  const old = await idb.get("meta").catch(() => null);
+  if (old && old.name === file.name && old.size === file.size && old.lastModified === file.lastModified) return;   // もう覚えている
+  if (remMode === "always") { rememberPack(file, d); return; }
+  $("arinfo").textContent = `覚えると、次にこのページを開いたときドライブを選ばずにすぐ地図を表示できます。この iPhone の容量を約 ${sizeText(file.size)} 使います` +
+    (old ? `(いま覚えている「${old.root}」と入れ替わります)。` : "。") + "あとから［設定］で消すこともできます。";
+  $("arkeep").checked = false;
+  $("askrem").hidden = false;
+  const yes = await new Promise(res => { $("aryes").onclick = () => res(true); $("arno").onclick = () => res(false); });
+  $("askrem").hidden = true;
+  if ($("arkeep").checked) setRemMode(yes ? "always" : "never");
+  if (yes) rememberPack(file, d);
+}
+function showLoading(msg) { $("loadmsg").textContent = msg; $("loading").hidden = false; }
+// 外付けドライブは準備に時間がかかることがあるので、遅いときは案内を出し、失敗したら少し待って読み直す
+async function readWithPatience(file, label) {
+  const slow = setTimeout(() => showLoading(`「${label}」を読み込んでいます…\n外付けドライブの準備に少し時間がかかっています。そのままお待ちください`), 3000);
+  try {
+    for (let i = 0; ; i++) {
+      try { return await readPack(file); }
+      catch (err) {
+        if (i >= 2 || /\.pmap\)ではありません/.test(err.message || "")) throw err;
+        showLoading(`読み込みに失敗したので、もう一度読んでいます…(${i + 2} 回目)`);
+        await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+      }
+    }
+  } finally { clearTimeout(slow); }
+}
+async function openPack(file, label, remember) {
+  showLoading(`「${label}」を読み込んでいます…`);
+  try {
+    const d = await readWithPatience(file, label);
+    showLoading(`${d.items.length.toLocaleString()} 件を地図に並べています…`);
     await new Promise(r => setTimeout(r, 30));     // 表示を更新してから処理する
     useDataset(d);
     toast(`${ds.items.length.toLocaleString()} 件を読み込みました`);
+    $("loading").hidden = true;
+    if (remember) maybeRemember(file, d);
+    return true;
   } catch (err) {
     toast(err.message || "読み込めませんでした");
+    return false;
   } finally {
     $("loading").hidden = true;
   }
+}
+$("pick").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (f) openPack(f, f.name, true);
 });
+async function offerResume() {
+  let m = null;
+  try { m = await idb.get("meta"); } catch (e) { return; }
+  if (!m) return;
+  $("rsinfo").textContent = `${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size)}${m.made ? "・" + m.made + " 作成" : ""})。この iPhone の中に覚えているので、ドライブを選ばずにすぐ開けます。`;
+  $("resume").hidden = false;
+  $("rsyes").focus();
+}
+$("rsno").onclick = () => { $("resume").hidden = true; };
+$("rsyes").onclick = async () => {
+  $("resume").hidden = true;
+  let m, blob;
+  try { [m, blob] = await Promise.all([idb.get("meta"), idb.get("blob")]); } catch (e) {}
+  if (!m || !blob) { toast("前回のデータが見つかりませんでした。［ファイルを開く］から選んでください"); return; }
+  const ok = await openPack(new File([blob], m.name), m.name, false);
+  if (!ok) toast("前回のデータを読めませんでした。［ファイルを開く］から選び直してください");
+};
+document.querySelectorAll('input[name="remmode"]').forEach(r => r.addEventListener("change", () => setRemMode(r.value)));
+setRemMode(remMode);
+$("forget").onclick = async () => {
+  try { await idb.del("blob"); await idb.del("meta"); } catch (e) {}
+  $("savedinfo").textContent = "覚えているデータはありません";
+  toast("覚えていたデータを消しました");
+};
+async function showSavedInfo() {
+  let m = null;
+  try { m = await idb.get("meta"); } catch (e) {}
+  $("savedinfo").textContent = m ? `いま覚えているもの: ${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size)})` : "覚えているデータはありません";
+}
 
 // ---------- 一覧 ----------
 const grid = $("grid");
@@ -1384,7 +1558,7 @@ function launch(url) {
 }
 const SHORTCUT = "写真マップで開く";
 const viaShortcut = url => `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(url)}`;
-const openURL = it => filesURL(drivePath(it));   // 普通のウェブサイトに置いたときは「ファイル」アプリを直接開ける
+const openURL = it => filesURL(drivePath(it));
 function openOriginal(it) {
   if (ds.sample) { toast("見本のデータです。［ファイルを開く］で .pmap を読み込むと使えます"); return; }
   toast(`「${it.n}」を開いています…`);
@@ -1397,23 +1571,7 @@ function setTapMode(m) {
 setTapMode(tapMode);
 document.querySelectorAll('input[name="tapmode"]').forEach(r => r.addEventListener("change", () => setTapMode(r.value)));
 $("settest").href = filesURL("");
-function buildDiag() {
-  const it = ds && !ds.sample && ds.items.length ? (vlist[vi] || ds.items[0]) : null;
-  if (!it) { $("diag").innerHTML = "<li>.pmap を読み込んでから開いてください</li>"; return; }
-  const parts = drivePath(it).split("/");
-  const base = "shareddocuments://" + (LIVEFILES + driveId()).split("/").map(encodeURIComponent).join("/");
-  const u = (arr, form) => base + "/" + arr.map(x => encodeURIComponent(x.normalize(form))).join("/");
-  const steps = [
-    ["1. " + parts[0] + "(NFC)", u(parts.slice(0, 1), "NFC")],
-    ["2. " + parts[0] + "(NFD)", u(parts.slice(0, 1), "NFD")],
-    ["3. 写真のフォルダ(NFC)", u(parts.slice(0, -1), "NFC") + "/"],
-    ["4. 写真のフォルダ(NFD)", u(parts.slice(0, -1), "NFD") + "/"],
-    ["5. 写真そのもの(NFC)", u(parts, "NFC")],
-    ["6. 写真そのもの(NFD)", u(parts, "NFD")],
-  ];
-  $("diag").innerHTML = steps.map(([t, h]) => `<li style="margin:6px 0"><a class="btn" target="_blank" rel="noopener" href="${esc(h)}">${esc(t)}</a></li>`).join("");
-}
-$("setbtn").onclick = () => { buildDiag(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
+$("setbtn").onclick = () => { showSavedInfo(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
 $("setclose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").hidden = true; });
 function tapItem(arr, k) { if (tapMode === "original") openOriginal(arr[k]); else openViewer(arr, k); }
@@ -1464,6 +1622,7 @@ $("vimgbox").addEventListener("touchend", e => {
 });
 
 useDataset(makeSample());
+offerResume();
 </script>
 
 </body></html>
