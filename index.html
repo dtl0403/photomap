@@ -960,6 +960,9 @@ button { cursor: pointer; }
     <p class="muted">タップすると、ドライブの番号とファイルの場所から「ファイル」アプリで元のファイルを直接開きます。準備はいりません。初めてのときは「"ファイル"で開きますか？」と聞かれるので［開く］を押してください。</p>
     <div class="row"><a class="btn" id="settest" target="_blank" rel="noopener">試す(T7 のいちばん上を開く)</a></div>
     <p class="muted">ドライブの番号: <span id="vuinfo">—</span></p>
+    <h3>開く場所の診断</h3>
+    <p class="muted">直前に見た写真で試します。1 つずつ押して、「ファイル」アプリで<b>どこが開いたか</b>(T7 のいちばん上／そのフォルダ／写真そのもの)を確かめてください。</p>
+    <ol id="diag"></ol>
   </div>
 </div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
@@ -1394,7 +1397,23 @@ function setTapMode(m) {
 setTapMode(tapMode);
 document.querySelectorAll('input[name="tapmode"]').forEach(r => r.addEventListener("change", () => setTapMode(r.value)));
 $("settest").href = filesURL("");
-$("setbtn").onclick = () => { $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
+function buildDiag() {
+  const it = ds && !ds.sample && ds.items.length ? (vlist[vi] || ds.items[0]) : null;
+  if (!it) { $("diag").innerHTML = "<li>.pmap を読み込んでから開いてください</li>"; return; }
+  const parts = drivePath(it).split("/");
+  const base = "shareddocuments://" + (LIVEFILES + driveId()).split("/").map(encodeURIComponent).join("/");
+  const u = (arr, form) => base + "/" + arr.map(x => encodeURIComponent(x.normalize(form))).join("/");
+  const steps = [
+    ["1. " + parts[0] + "(NFC)", u(parts.slice(0, 1), "NFC")],
+    ["2. " + parts[0] + "(NFD)", u(parts.slice(0, 1), "NFD")],
+    ["3. 写真のフォルダ(NFC)", u(parts.slice(0, -1), "NFC") + "/"],
+    ["4. 写真のフォルダ(NFD)", u(parts.slice(0, -1), "NFD") + "/"],
+    ["5. 写真そのもの(NFC)", u(parts, "NFC")],
+    ["6. 写真そのもの(NFD)", u(parts, "NFD")],
+  ];
+  $("diag").innerHTML = steps.map(([t, h]) => `<li style="margin:6px 0"><a class="btn" target="_blank" rel="noopener" href="${esc(h)}">${esc(t)}</a></li>`).join("");
+}
+$("setbtn").onclick = () => { buildDiag(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
 $("setclose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").hidden = true; });
 function tapItem(arr, k) { if (tapMode === "original") openOriginal(arr[k]); else openViewer(arr, k); }
