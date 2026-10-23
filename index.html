@@ -843,7 +843,14 @@ button { cursor: pointer; }
 .vbar .ttl { flex: 1; min-width: 0; font-size: 13px; color: #c9d3dc; text-align: center; font-variant-numeric: tabular-nums; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
 #vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: pan-y; }
-#vimg { max-width: 100%; max-height: 100%; object-fit: contain; }
+#vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+/* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
+#fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
+#fs[hidden] { display: none !important; }
+#fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; }
+#fs .fsplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%;
+              background: rgba(0,0,0,.45); pointer-events: none; }
+#fs .fsplay::after { content: ""; position: absolute; left: 25px; top: 18px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
 #vplay { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(0,0,0,.5); pointer-events: none; }
 #vplay::after { content: ""; position: absolute; left: 25px; top: 18px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
 .vinfo { flex: none; background: #111; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 6px; }
@@ -974,9 +981,9 @@ button { cursor: pointer; }
     <div class="row" style="align-items:center"><h2 style="flex:1">設定</h2><button type="button" class="btn" id="setclose">閉じる</button></div>
     <h3>サムネイルをタップしたとき</h3>
     <label class="opt"><input type="radio" name="tapmode" value="original" id="tm-original">
-      <span><b>元の写真・動画をすぐ開く</b>(おすすめ)<br>ドライブの元のファイルを「ファイル」アプリで開きます。下の準備(1 回だけ)が必要です</span></label>
+      <span><b>元の写真・動画をすぐ開く</b><br>ドライブの元のファイルを「ファイル」アプリで開きます。下の準備(1 回だけ)が必要です</span></label>
     <label class="opt"><input type="radio" name="tapmode" value="preview" id="tm-preview">
-      <span><b>この画面でプレビューを見る</b><br>縮小した画像と、撮影日時・場所を表示します。そこからも［元のファイルを開く］ができます</span></label>
+      <span><b>この画面でプレビューを見る</b>(標準)<br>縮小した画像と、撮影日時・場所を表示します。そこからも［元のファイルを開く］ができます</span></label>
     <h3>しくみ</h3>
     <p class="muted">タップすると、ドライブの番号とファイルの場所から「ファイル」アプリで元のファイルを直接開きます。初めてのときは「"ファイル"で開きますか？」と聞かれるので［開く］を押してください。見終わったら左上の「◀ Safari」で地図に戻ります。</p>
     <p class="muted">パソコンでドライブの中身を変えたあと、「ファイル」アプリで違うフォルダの中身が見えたり開けなかったりするときは、［設定］→［一般］→［iPhone ストレージ］→［ファイル］→［App を取り除く］のあと入れ直してください。</p>
@@ -991,6 +998,7 @@ button { cursor: pointer; }
     <div class="row"><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
   </div>
 </div>
+<div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
 <div id="askrem" hidden role="dialog" aria-modal="true" aria-labelledby="artitle">
   <div class="box">
@@ -1578,7 +1586,7 @@ grid.addEventListener("touchend", () => { p0 = null; });
 // iPhone は外付けドライブを .../LiveFiles/com.apple.filesystems.userfsd/<ドライブの番号>/ に置く
 const LIVEFILES = "/private/var/mobile/Library/LiveFiles/com.apple.filesystems.userfsd/";
 const DEFAULT_VU = "26682E92-0F31-3F81-B34A-2ECA8E7D5976";   // T7(番号の入っていない古い .pmap 用)
-let tapMode = store.get("tapMode", "original");
+let tapMode = store.get("tapMode2", "preview");   // 初めは「この画面でプレビューを見る」
 const drivePath = it => [ds.rootpath, ...(it.f && it.f !== "." ? it.f.split("/") : []), it.n].filter(Boolean).join("/");
 const driveId = () => (ds && ds.vu) || DEFAULT_VU;
 const filesURL = rel => "shareddocuments://" + (LIVEFILES + driveId() + "/" + (rel || "")).split("/").map(encodeURIComponent).join("/");
@@ -1596,7 +1604,7 @@ function openOriginal(it) {
   launch(openURL(it));
 }
 function setTapMode(m) {
-  tapMode = m; store.set("tapMode", m);
+  tapMode = m; store.set("tapMode2", m);
   $("tm-original").checked = m === "original"; $("tm-preview").checked = m === "preview";
 }
 setTapMode(tapMode);
@@ -1623,6 +1631,10 @@ async function showV() {
   const img = $("vimg"); img.removeAttribute("src");
   const u = await imgURL(it);
   if (vlist[vi] === it && u) img.src = u;
+  if (vlist[vi] === it && !$("fs").hidden) {     // 全画面のままで前後に移ったとき
+    if (u) $("fsimg").src = u; else $("fsimg").removeAttribute("src");
+    $("fsplay").hidden = it.k !== "動画";
+  }
 }
 function openViewer(arr, k) { vlist = arr; vi = k; $("viewer").hidden = false; showV(); $("vclose").focus(); }
 $("vclose").onclick = () => { $("viewer").hidden = true; };
@@ -1645,10 +1657,38 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") $("vnext").click();
 });
 let sx = null;
+// 写真をタップ → 全画面表示 / 全画面をタップ → 元のプレビューに戻る
+let swiped = false;
+$("vimg").addEventListener("click", () => {
+  if (swiped || !$("vimg").getAttribute("src")) return;
+  $("fsimg").src = $("vimg").src;
+  $("fsplay").hidden = $("vplay").hidden;
+  $("fs").hidden = false;
+});
+$("fs").addEventListener("click", () => {
+  if (fsSwiped) return;                          // めくったときは閉じない
+  $("fs").hidden = true; $("fsimg").removeAttribute("src");
+});
+// 全画面でも左右にめくると前後の写真へ
+let fsx = null, fsSwiped = false;
+$("fs").addEventListener("touchstart", e => { if (e.touches.length === 1) fsx = e.touches[0].clientX; }, {passive: true});
+$("fs").addEventListener("touchend", e => {
+  if (fsx === null) return;
+  const dx = e.changedTouches[0].clientX - fsx; fsx = null;
+  fsSwiped = Math.abs(dx) > 10; setTimeout(() => { fsSwiped = false; }, 400);
+  if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click();
+});
+document.addEventListener("keydown", e => {
+  if ($("fs").hidden) return;
+  if (e.key === "ArrowLeft") { e.stopImmediatePropagation(); $("vprev").click(); }
+  if (e.key === "ArrowRight") { e.stopImmediatePropagation(); $("vnext").click(); }
+}, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").hidden) { e.stopImmediatePropagation(); $("fs").click(); } }, true);
 $("vimgbox").addEventListener("touchstart", e => { if (e.touches.length === 1) sx = e.touches[0].clientX; }, {passive: true});
 $("vimgbox").addEventListener("touchend", e => {
   if (sx === null) return;
   const dx = e.changedTouches[0].clientX - sx; sx = null;
+  swiped = Math.abs(dx) > 10; setTimeout(() => { swiped = false; }, 400);   // 横にめくったときは全画面にしない
   if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click();
 });
 
