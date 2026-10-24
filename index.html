@@ -822,6 +822,8 @@ button { cursor: pointer; }
 #map { flex: 1; min-width: 0; background: var(--sea); }
 .leaflet-container { background: var(--sea); font-family: var(--font); }
 #pworld { width: 44px; font-size: 13px; font-weight: 700; }
+#pdetail { width: 44px; font-size: 12px; font-weight: 700; line-height: 1.15 !important; padding-top: 4px; height: 34px !important; white-space: normal; }
+#pdetail[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .lbl { width: 0; height: 0; }
 .lbl span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; color: var(--sub); pointer-events: none;
             text-shadow: 0 0 3px var(--land), 0 0 3px var(--land), 0 0 2px var(--land); }
@@ -939,7 +941,7 @@ button { cursor: pointer; }
         <button type="button" id="vm-list" aria-pressed="true">一覧</button><button type="button" id="vm-map" aria-pressed="false">地図</button>
       </div>
     </div>
-    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません。</div>
+    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません(地図の［詳細］がオンのときは、表示している範囲の地図の画像だけを OpenStreetMap から取り寄せます)。</div>
     <div id="filters" hidden>
     <div class="pmode" role="group" aria-label="期間の決め方">
       <button type="button" id="pm-range" aria-pressed="true">範囲で指定</button><button type="button" id="pm-year" aria-pressed="false">年だけ指定</button>
@@ -1131,16 +1133,18 @@ function makeSample() {
 }
 
 // ---------- 地図 ----------
-const map = L.map("map", {zoomControl: true, attributionControl: true, minZoom: 0, maxZoom: 14, maxBounds: [[-85, -200], [85, 200]], maxBoundsViscosity: 1, preferCanvas: true, zoomSnap: .5})
+const map = L.map("map", {zoomControl: true, attributionControl: true, minZoom: 0, maxZoom: 18, maxBounds: [[-85, -200], [85, 200]], maxBoundsViscosity: 1, preferCanvas: true, zoomSnap: .5})
   .setView([36.2, 137.5], 5);
 map.attributionControl.setPrefix(false).addAttribution(
   '市区町村の境界: <a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報(行政区域)</a>を加工(<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">japan-topography</a>) ・ 海外: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>');
 // ［全体］: 海外も含めて、すべての写真が入るように表示する
 L.Control.World = L.Control.extend({onAdd() {
   const d = L.DomUtil.create("div", "leaflet-bar");
-  d.innerHTML = '<a href="#" id="pworld" role="button" title="すべての写真が入るように表示" hidden>全体</a>';
+  d.innerHTML = '<a href="#" id="pworld" role="button" title="すべての写真が入るように表示" hidden>全体</a>' +
+                '<a href="#" id="pdetail" role="button" aria-pressed="false" title="道路や地名まで表示する詳しい地図(OpenStreetMap)">詳細<br>地図</a>';
   L.DomEvent.disableClickPropagation(d);
   d.firstChild.onclick = e => { e.preventDefault(); fitAll(); };
+  d.lastChild.onclick = e => { e.preventDefault(); setDetail(!detail, true); };
   return d;
 }});
 new L.Control.World({position: "topleft"}).addTo(map);
@@ -1178,13 +1182,29 @@ function restyle() {
   prefLines && prefLines.setStyle({color: css("--border")});
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", restyle);
+// ---- 詳しい地図(OpenStreetMap の地図画像)。海外も道路・街の名前まで見られる。電波がないときは今までの白地図 ----
+const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 18, attribution: '地図: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'});
+let detail = store.get("detail", true), tileOK = 0, tileNG = 0;
+osm.on("tileload", () => { tileOK++; });
+osm.on("tileerror", () => {
+  tileNG++;
+  if (!tileOK && tileNG >= 4 && detail) { setDetail(false, false); toast("地図の画像を読み込めないので、簡単な地図で表示しています"); }
+});
+function setDetail(on, save) {
+  detail = on; if (save) store.set("detail", on);
+  const vec = [worldLayer, landLayer, prefLines];
+  if (on) { tileOK = tileNG = 0; vec.forEach(l => l && l.remove()); muniLines && muniLines.remove(); osm.addTo(map); map.setMaxZoom(18); }
+  else { osm.remove(); vec.forEach(l => l && l.addTo(map)); map.setMaxZoom(14); }   // 白地図は細かくしても意味がないので 14 まで
+  const b = document.getElementById("pdetail"); if (b) b.setAttribute("aria-pressed", String(on));
+  drawLabels();
+}
 new MutationObserver(restyle).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
 
 // 地名: 縮小時は都道府県、拡大すると市区町村(画面に入っているものだけ表示)
 const labelLayer = L.layerGroup().addTo(map);
 function drawLabels() {
   labelLayer.clearLayers();
-  if (!LABELS) return;
+  if (!LABELS || detail) return;           // 詳しい地図には地名が入っている
   const z = map.getZoom(), b = map.getBounds().pad(.1);
   if (muniLines) { if (z >= 8) muniLines.addTo(map); else muniLines.remove(); }
   const list = z >= 9 ? LABELS.labels : (z >= 5.5 ? LABELS.prefLabels : []);
@@ -1209,7 +1229,7 @@ const pointLayer = L.layerGroup().addTo(map);
 let index = null;
 const pinIcon = L.divIcon({className: "pin", iconSize: [14, 14]});
 function rebuildIndex() {
-  index = new Supercluster({radius: 56, maxZoom: 14, minPoints: 2});
+  index = new Supercluster({radius: 56, maxZoom: 18, minPoints: 2});
   index.load(shownGeo.map(it => ({type: "Feature", properties: {i: it.i}, geometry: {type: "Point", coordinates: [it.lo, it.la]}})));
   drawPoints();
 }
@@ -1238,7 +1258,7 @@ function drawPoints() {
   }
 }
 map.on("moveend zoomend", () => { drawPoints(); drawLabels(); });
-drawLabels();
+setDetail(detail && navigator.onLine !== false, false);
 
 // ---------- 絞り込み ----------
 let shown = [], shownGeo = [], MONTHS = [];
