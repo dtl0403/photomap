@@ -830,7 +830,7 @@ button { cursor: pointer; }
 .lbl.pref span { font-size: 12.5px; font-weight: 700; color: var(--fg); opacity: .75; }
 .pin { width: 14px !important; height: 14px !important; margin: -7px 0 0 -7px !important; border-radius: 50%; background: var(--pin); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 #fab { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 1000; box-shadow: var(--shadow); }
-#count { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 1000;
+#count { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 130px); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 1000;
          background: var(--bg); color: var(--sub); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
 
 /* 一覧(スマホ: 下から / 広い画面: 右側) */
@@ -941,7 +941,7 @@ button { cursor: pointer; }
         <button type="button" id="vm-list" aria-pressed="true">一覧</button><button type="button" id="vm-map" aria-pressed="false">地図</button>
       </div>
     </div>
-    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません(地図の［詳細］がオンのときは、表示している範囲の地図の画像だけを OpenStreetMap から取り寄せます)。</div>
+    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません(地図の［詳細］がオンのときは、表示している範囲の地図だけを OpenFreeMap / OpenStreetMap から取り寄せます)。</div>
     <div id="filters" hidden>
     <div class="pmode" role="group" aria-label="期間の決め方">
       <button type="button" id="pm-range" aria-pressed="true">範囲で指定</button><button type="button" id="pm-year" aria-pressed="false">年だけ指定</button>
@@ -1182,19 +1182,54 @@ function restyle() {
   prefLines && prefLines.setStyle({color: css("--border")});
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", restyle);
-// ---- 詳しい地図(OpenStreetMap の地図画像)。海外も道路・街の名前まで見られる。電波がないときは今までの白地図 ----
+// ---- 詳しい地図: OpenFreeMap(中身は OpenStreetMap)のベクター地図。地名は日本語名があれば日本語で出す ----
+// 読み込めないときは OpenStreetMap の地図画像、それもだめなら今までの白地図
 const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 18, attribution: '地図: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'});
-let detail = store.get("detail", true), tileOK = 0, tileNG = 0;
+let detail = store.get("detail", true), tileOK = 0, tileNG = 0, detailLayer = null, detailReady = null;
+const failDetail = () => { if (detail) { setDetail(false, false); toast("地図を読み込めないので、簡単な地図で表示しています"); } };
 osm.on("tileload", () => { tileOK++; });
-osm.on("tileerror", () => {
-  tileNG++;
-  if (!tileOK && tileNG >= 4 && detail) { setDetail(false, false); toast("地図の画像を読み込めないので、簡単な地図で表示しています"); }
-});
+osm.on("tileerror", () => { tileNG++; if (!tileOK && tileNG >= 4) failDetail(); });
+const ML = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/", MLL = "https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js";
+const STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const loadJS = u => new Promise((res, rej) => { const e = document.createElement("script"); e.src = u; e.onload = res; e.onerror = rej; document.head.appendChild(e); });
+// 地名の表示を「日本語名 → なければ現地の名前」にする(通りの番号や番地はそのまま)
+function jaStyle(st) {
+  const JA = ["coalesce", ["get", "name:ja"], ["get", "name"]];
+  (st.layers || []).forEach(l => {
+    const tf = l.layout && l.layout["text-field"];
+    if (tf && /name/.test(JSON.stringify(tf))) l.layout["text-field"] = JA;
+  });
+  return st;
+}
+function getDetailLayer() {
+  if (!detailReady) detailReady = (async () => {
+    try {
+      const css = document.createElement("link"); css.rel = "stylesheet"; css.href = ML + "maplibre-gl.css"; document.head.appendChild(css);
+      const [st] = await Promise.all([fetch(STYLE).then(r => { if (!r.ok) throw 0; return r.json(); }), loadJS(ML + "maplibre-gl.js")]);
+      await loadJS(MLL);
+      if (!L.maplibreGL) throw 0;
+      const lyr = L.maplibreGL({style: jaStyle(st), localIdeographFontFamily: "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif"});
+      lyr.on("add", () => {
+        const gl = lyr.getMaplibreMap(); let ok = false, ng = 0;
+        gl.on("load", () => { ok = true; });
+        gl.on("error", () => { if (!ok && ++ng >= 4) failDetail(); });
+      });
+      return lyr;
+    } catch (e) { return osm; }     // ベクター地図が使えないときは地図画像(地名は現地語)
+  })();
+  return detailReady;
+}
 function setDetail(on, save) {
   detail = on; if (save) store.set("detail", on);
   const vec = [worldLayer, landLayer, prefLines];
-  if (on) { tileOK = tileNG = 0; vec.forEach(l => l && l.remove()); muniLines && muniLines.remove(); osm.addTo(map); map.setMaxZoom(18); }
-  else { osm.remove(); vec.forEach(l => l && l.addTo(map)); map.setMaxZoom(14); }   // 白地図は細かくしても意味がないので 14 まで
+  if (on) {
+    tileOK = tileNG = 0; vec.forEach(l => l && l.remove()); muniLines && muniLines.remove();
+    map.setMaxZoom(18);
+    getDetailLayer().then(l => { detailLayer = l; if (detail && !map.hasLayer(l)) l.addTo(map); });
+  } else {
+    if (detailLayer) detailLayer.remove(); osm.remove();
+    vec.forEach(l => l && l.addTo(map)); map.setMaxZoom(14);   // 白地図は細かくしても意味がないので 14 まで
+  }
   const b = document.getElementById("pdetail"); if (b) b.setAttribute("aria-pressed", String(on));
   drawLabels();
 }
@@ -1243,17 +1278,30 @@ function drawPoints() {
   if (!index) return;
   const b = map.getBounds().pad(.2);
   const box = [Math.max(-180, b.getWest()), Math.max(-85, b.getSouth()), Math.min(180, b.getEast()), Math.min(85, b.getNorth())];
-  for (const f of index.getClusters(box, Math.round(map.getZoom()))) {
-    const [lo, la] = f.geometry.coordinates;
-    if (f.properties.cluster) {
-      const id = f.properties.cluster_id, n = f.properties.point_count;
-      L.marker([la, lo], {icon: clusterIcon(n), keyboard: false}).on("click", () => {
-        const arr = index.getLeaves(id, Infinity).map(x => ds.items[x.properties.i]);
-        openSheet(`この場所 ${arr.length.toLocaleString()} 件`, arr);
+  // まとめた結果どうしが画面上で重なるときは、件数のいちばん多い円に吸収する
+  const fs = index.getClusters(box, Math.round(map.getZoom())).map(f => {
+    const [lo, la] = f.geometry.coordinates, c = !!f.properties.cluster;
+    const pt = map.latLngToContainerPoint([la, lo]);
+    return {la, lo, x: pt.x, y: pt.y, n: c ? f.properties.point_count : 1, parts: [f]};
+  }).sort((p, q) => q.n - p.n);
+  const R = n => n > 1 ? 22 : 9;          // 画面上の半径(数字の円 / 1 件の点)
+  const kept = [];
+  for (const f of fs) {
+    const host = kept.find(k => Math.hypot(k.x - f.x, k.y - f.y) < R(k.n0) + R(f.n) + 2);
+    if (host) { host.n += f.n; host.parts.push(...f.parts); }
+    else { f.n0 = f.n; kept.push(f); }
+  }
+  const leaves = parts => parts.flatMap(f => f.properties.cluster
+    ? index.getLeaves(f.properties.cluster_id, Infinity).map(x => ds.items[x.properties.i]) : [ds.items[f.properties.i]]);
+  for (const k of kept) {
+    if (k.n > 1) {
+      L.marker([k.la, k.lo], {icon: clusterIcon(k.n), keyboard: false}).on("click", () => {
+        const arr = leaves(k.parts);
+        openSheet(`この辺り ${arr.length.toLocaleString()} 件`, arr);
       }).addTo(pointLayer);
     } else {
-      const it = ds.items[f.properties.i];
-      L.marker([la, lo], {icon: pinIcon, keyboard: false}).on("click", () => tapItem([it], 0)).addTo(pointLayer);
+      const it = ds.items[k.parts[0].properties.i];
+      L.marker([k.la, k.lo], {icon: pinIcon, keyboard: false}).on("click", () => tapItem([it], 0)).addTo(pointLayer);
     }
   }
 }
@@ -1403,7 +1451,7 @@ function apply(fit) {
   rebuildIndex();
   const noGeo = shown.length - shownGeo.length;
   $("count").textContent = `地図 ${shownGeo.length.toLocaleString()} 件` + (noGeo ? ` ・位置情報なし ${noGeo.toLocaleString()} 件` : "") +
-    (ds.excluded ? ` ・位置情報なし ${ds.excluded.toLocaleString()} 件(このファイルには入っていません)` : "");
+    (ds.excluded ? ` ・位置情報なし ${ds.excluded.toLocaleString()} 件(このファイルには未収録)` : "");
   $("pworld").hidden = !shownGeo.length;
   if (fit && shownGeo.length) fitMain();
   if (viewMode === "list") showListView();
