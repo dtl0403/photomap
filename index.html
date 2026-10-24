@@ -781,7 +781,18 @@ button { cursor: pointer; }
 #period { display: grid; grid-template-columns: auto minmax(0, 1.4fr) auto minmax(0, 1fr) auto; gap: 6px 6px; align-items: center; }
 #period .pl { font-size: 12px; font-weight: 800; color: var(--accent); }
 #period input { min-width: 0; width: 100%; box-sizing: border-box; min-height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--bg); color: var(--fg); padding: 0 8px; font-size: 16px; font-variant-numeric: tabular-nums; }
-#period .u { color: var(--sub); font-size: 14px; }
+#period .u, #pyear .u { color: var(--sub); font-size: 14px; }
+.pmode { display: flex; gap: 0; }
+.pmode button { flex: 1; min-height: 34px; border: 1.5px solid var(--accent); background: var(--bg); color: var(--accent); font-size: 14px; font-weight: 700; }
+.pmode button:first-child { border-radius: 9px 0 0 9px; } .pmode button:last-child { border-radius: 0 9px 9px 0; border-left: 0; }
+.pmode button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+#pyear { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+#pyear[hidden], #period[hidden] { display: none !important; }
+#pyear .pl { font-size: 12px; font-weight: 800; color: var(--accent); }
+#pyear input { min-width: 0; width: 100%; box-sizing: border-box; min-height: 40px; border: 1.5px solid var(--accent); border-radius: 10px; background: var(--bg); color: var(--fg); padding: 0 34px 0 8px; font-size: 16px; font-variant-numeric: tabular-nums; }
+#pyear .fld { position: relative; min-width: 0; }
+#pyear .fld::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--accent); font-size: 15px; pointer-events: none; }
+#pyear .fld select { position: absolute; top: 0; right: 0; bottom: 0; width: 38px; opacity: 0; font-size: 16px; }
 #period .fld { position: relative; min-width: 0; }
 #period .fld input { padding-right: 34px; }
 #period .fld::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--accent); font-size: 15px; pointer-events: none; }
@@ -916,6 +927,13 @@ button { cursor: pointer; }
     <button type="button" id="psum" aria-label="表示する期間と検索を開く"></button>
     <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません。</div>
     <div id="filters" hidden>
+    <div class="pmode" role="group" aria-label="期間の決め方">
+      <button type="button" id="pm-range" aria-pressed="true">範囲で指定</button><button type="button" id="pm-year" aria-pressed="false">年だけ指定</button>
+    </div>
+    <div id="pyear" hidden role="group" aria-label="表示する年">
+      <span class="pl">年</span>
+      <span class="fld"><input id="yy" inputmode="numeric" autocomplete="off" placeholder="年" aria-label="表示する年"><select id="yys" aria-label="年を一覧から選ぶ"></select></span><span class="u">年(1月〜12月)</span>
+    </div>
     <div id="period" role="group" aria-label="表示する期間">
       <input type="hidden" id="pfrom"><input type="hidden" id="pto">
       <span class="pl">開始</span>
@@ -1215,7 +1233,30 @@ function buildMonths(items) {
   const yc = {};
   out.forEach(ym => { const y = ym.slice(0, 4); yc[y] = (yc[y] || 0) + n[ym]; });
   const yopts = `<option value="" disabled>年を選ぶ</option>` + Object.keys(yc).sort().map(y => `<option value="${y}">${y}年(${yc[y].toLocaleString()}件)</option>`).join("");
-  $("fys").innerHTML = yopts; $("tys").innerHTML = yopts;
+  $("fys").innerHTML = yopts; $("tys").innerHTML = yopts; $("yys").innerHTML = yopts;
+  YEARS = Object.keys(yc).sort();
+}
+let YEARS = [];
+// ---- 年だけ指定: その年の 1 月 1 日〜12 月 31 日(写真のある最初の月〜最後の月)を表示する ----
+let periodMode = store.get("periodMode", "range");
+function setYear(y, fit = true) {
+  if (!YEARS.length) return;
+  y = String(y);
+  if (!YEARS.includes(y)) y = YEARS.find(v => v >= y) || YEARS[YEARS.length - 1];   // 写真のない年は、次に写真のある年
+  const ms = MONTHS.filter(ym => ym.slice(0, 4) === y);
+  setPeriod(ms[0], ms[ms.length - 1], fit);
+}
+function setPeriodMode(m) {
+  periodMode = m; store.set("periodMode", m);
+  $("pm-range").setAttribute("aria-pressed", String(m === "range"));
+  $("pm-year").setAttribute("aria-pressed", String(m === "year"));
+  $("period").hidden = m === "year"; $("pyear").hidden = m !== "year";
+}
+function readYearInput() {
+  let y = num($("yy").value);
+  if (y === null) return;
+  if (y < 100) y += 2000;
+  setYear(y);
 }
 let MCOUNT = {};
 // 年を選んだら、その年の写真のある月だけを候補に出す
@@ -1229,6 +1270,7 @@ function syncPeriodInputs() {
   $("fy").value = f.slice(0, 4); $("fm").value = +f.slice(5, 7);
   $("ty").value = t.slice(0, 4); $("tm").value = +t.slice(5, 7);
   monthList("fms", f.slice(0, 4)); monthList("tms", t.slice(0, 4));
+  $("yy").value = f.slice(0, 4); $("yys").value = f.slice(0, 4);
   [["fys", f.slice(0, 4)], ["fms", String(+f.slice(5, 7))], ["tys", t.slice(0, 4)], ["tms", String(+t.slice(5, 7))]].forEach(([id, v]) => { $(id).value = v; });
 }
 // 手で打った値を読む(全角数字・「年」「月」付き・2 桁の年も受け付ける)
@@ -1261,6 +1303,12 @@ function setPeriod(a, b, fit) {
   apply(fit);
 }
 function shiftPeriod(dir) {
+  if (periodMode === "year" && YEARS.length) {
+    const i = YEARS.indexOf($("pfrom").value.slice(0, 4));
+    const ni = Math.max(0, Math.min(YEARS.length - 1, (i < 0 ? 0 : i) + dir));
+    setYear(YEARS[ni]);
+    return;
+  }
   const i = MONTHS.indexOf($("pfrom").value), j = MONTHS.indexOf($("pto").value), len = j - i + 1;
   const ni = Math.max(0, Math.min(MONTHS.length - len, i + dir * len));
   setPeriod(MONTHS[ni], MONTHS[ni + len - 1], true);
@@ -1286,7 +1334,14 @@ function setFilters(open) {
 }
 $("menubtn").onclick = () => setFilters($("filters").hidden);
 $("psum").onclick = () => setFilters(true);
-$("pall").onclick = () => setPeriod(MONTHS[0], MONTHS[MONTHS.length - 1], true);
+$("pall").onclick = () => { if (periodMode === "year") setPeriodMode("range"); setPeriod(MONTHS[0], MONTHS[MONTHS.length - 1], true); };
+$("pm-range").onclick = () => setPeriodMode("range");
+$("pm-year").onclick = () => { setPeriodMode("year"); if (MONTHS.length) setYear($("pfrom").value.slice(0, 4) || YEARS[YEARS.length - 1]); };
+$("yys").addEventListener("change", () => { $("yy").value = $("yys").value; setYear($("yys").value); });
+$("yy").addEventListener("change", readYearInput);
+$("yy").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("yy").blur(); } });
+$("yy").addEventListener("focus", () => $("yy").select());
+setPeriodMode(periodMode);
 $("pprev").onclick = () => shiftPeriod(-1);
 $("pnext").onclick = () => shiftPeriod(1);
 function apply(fit) {
@@ -1297,12 +1352,14 @@ function apply(fit) {
   shown = ds.items.filter(it => inPeriod(it) && words.every(w => it.s.includes(w)));
   if (MONTHS.length) {
     const i = MONTHS.indexOf(from), j = MONTHS.indexOf(to);
-    $("pinfo").textContent = whole ? `全期間(${MONTHS.length} か月)` : `写真のある ${j - i + 1} か月分`;
+    const oneYear = from.slice(0, 4) === to.slice(0, 4) && MONTHS.filter(ym => ym.slice(0, 4) === from.slice(0, 4)).every(ym => ym >= from && ym <= to);
+    $("pinfo").textContent = whole ? `全期間(${MONTHS.length} か月)` : oneYear ? `${+from.slice(0, 4)}年・写真のある ${j - i + 1} か月` : `写真のある ${j - i + 1} か月分`;
     $("pprev").disabled = whole || i === 0;
     $("pnext").disabled = whole || j === MONTHS.length - 1;
   }
   const fl = ym => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
-  $("psum").innerHTML = (MONTHS.length ? (whole ? "期間: <b>全期間</b>" : `期間: <b>${fl(from)}${from === to ? "" : "〜" + fl(to)}</b>`) : "") +
+  const fullYear = MONTHS.length && from.slice(0, 4) === to.slice(0, 4) && MONTHS.filter(ym => ym.slice(0, 4) === from.slice(0, 4)).every(ym => ym >= from && ym <= to);
+  $("psum").innerHTML = (MONTHS.length ? (whole ? "期間: <b>全期間</b>" : fullYear ? `期間: <b>${+from.slice(0, 4)}年(1月〜12月)</b>` : `期間: <b>${fl(from)}${from === to ? "" : "〜" + fl(to)}</b>`) : "") +
     (words.length ? ` ・ 検索: <b>${esc($("q").value.trim())}</b>` : "");
   rebuildIndex();
   $("count").textContent = `${shown.length.toLocaleString()} 件` + (ds.nogps ? ` ・位置情報なし ${ds.nogps.toLocaleString()} 件` : "");
