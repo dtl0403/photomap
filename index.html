@@ -799,7 +799,15 @@ button { cursor: pointer; }
 #period .fld select { position: absolute; top: 0; right: 0; bottom: 0; width: 38px; opacity: 0; font-size: 16px; }
 #menubtn { min-width: 40px; justify-content: center; font-size: 18px; padding: 0 10px; }
 #menubtn[aria-expanded="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-#psum { display: block; margin-top: -4px; width: 100%; text-align: left; border: 0; background: none; padding: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+#prow { display: flex; align-items: center; gap: 8px; margin-top: -4px; }
+.vmode { flex: none; display: flex; }
+.vmode button { min-height: 30px; padding: 0 10px; border: 1.5px solid var(--accent); background: var(--bg); color: var(--accent); font-size: 13px; font-weight: 700; }
+.vmode button:first-child { border-radius: 8px 0 0 8px; } .vmode button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.vmode button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+#sheet.full { top: 0; height: auto !important; border-radius: 0; box-shadow: none; left: 0; width: auto; }
+#sheet.full #grip { display: none; }
+#sheet.full #sclose { display: none; }
+#psum { flex: 1; min-width: 0; display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 #psum b { color: var(--accent); font-weight: 700; }
 #filters { display: flex; flex-direction: column; gap: 8px; }
 #filters[hidden] { display: none !important; }
@@ -859,7 +867,8 @@ button { cursor: pointer; }
 /* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
 #fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
 #fs[hidden] { display: none !important; }
-#fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; }
+#fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#fs img.anim { transition: transform .22s ease-out; }
 #fs .fsplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%;
               background: rgba(0,0,0,.45); pointer-events: none; }
 #fs .fsplay::after { content: ""; position: absolute; left: 25px; top: 18px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
@@ -924,7 +933,12 @@ button { cursor: pointer; }
       <label class="btn primary" for="pick">ファイルを開く</label>
       <input id="pick" class="vh" type="file" accept="application/octet-stream">
     </div>
-    <button type="button" id="psum" aria-label="表示する期間と検索を開く"></button>
+    <div id="prow">
+      <button type="button" id="psum" aria-label="表示する期間と検索を開く"></button>
+      <div class="vmode" role="group" aria-label="表示のしかた">
+        <button type="button" id="vm-list" aria-pressed="true">一覧</button><button type="button" id="vm-map" aria-pressed="false">地図</button>
+      </div>
+    </div>
     <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません。</div>
     <div id="filters" hidden>
     <div class="pmode" role="group" aria-label="期間の決め方">
@@ -1017,7 +1031,7 @@ button { cursor: pointer; }
     <div class="row"><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
   </div>
 </div>
-<div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
+<div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
 <div id="askrem" hidden role="dialog" aria-modal="true" aria-labelledby="artitle">
   <div class="box">
@@ -1076,9 +1090,12 @@ async function readPack(file) {
   // 緯度・経度がおかしいもの(0,0 など)は地図に出さない
   const ok = it => Number.isFinite(it.la) && Number.isFinite(it.lo) && Math.abs(it.la) <= 85 && Math.abs(it.lo) <= 180
                    && !(Math.abs(it.la) < 0.01 && Math.abs(it.lo) < 0.01);
-  const good = meta.items.filter(ok);
+  meta.items.forEach(it => { it.g = ok(it); });   // g: 地図に置けるか(位置情報がある)
+  const noGeoIn = meta.items.filter(it => !it.g).length;
   return {name: file.name, root: meta.root, rootpath: meta.rp || meta.root, hasRootpath: !!meta.rp,
-          made: meta.made, vu: meta.vu || "", nogps: (meta.nogps || 0) + (meta.items.length - good.length), items: good, sample: false};
+          made: meta.made, vu: meta.vu || "", items: meta.items, sample: false,
+          // 入っていない位置情報なしの件数(古い .pmap は位置情報のあるものだけ)
+          excluded: meta.ng ? 0 : Math.max(0, (meta.nogps || 0)), noGeoIn};
 }
 
 // 見本(最初に表示する、架空のデータ)
@@ -1109,7 +1126,8 @@ function makeSample() {
       items.push(it);
     }
   });
-  return {name: "見本", root: "雄介iPhoneバックアップ", rootpath: "雄介iPhoneバックアップ", hasRootpath: true, made: "", nogps: 0, items, sample: true};
+  items.forEach(it => { it.g = true; });
+  return {name: "見本", root: "雄介iPhoneバックアップ", rootpath: "雄介iPhoneバックアップ", hasRootpath: true, made: "", excluded: 0, noGeoIn: 0, items, sample: true};
 }
 
 // ---------- 地図 ----------
@@ -1192,7 +1210,7 @@ let index = null;
 const pinIcon = L.divIcon({className: "pin", iconSize: [14, 14]});
 function rebuildIndex() {
   index = new Supercluster({radius: 56, maxZoom: 14, minPoints: 2});
-  index.load(shown.map(it => ({type: "Feature", properties: {i: it.i}, geometry: {type: "Point", coordinates: [it.lo, it.la]}})));
+  index.load(shownGeo.map(it => ({type: "Feature", properties: {i: it.i}, geometry: {type: "Point", coordinates: [it.lo, it.la]}})));
   drawPoints();
 }
 function clusterIcon(n) {
@@ -1223,7 +1241,7 @@ map.on("moveend zoomend", () => { drawPoints(); drawLabels(); });
 drawLabels();
 
 // ---------- 絞り込み ----------
-let shown = [], MONTHS = [];
+let shown = [], shownGeo = [], MONTHS = [];
 const mLabel = ym => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
 function buildMonths(items) {
   const out = [...new Set(items.map(it => it.d.slice(0, 7)).filter(Boolean))].sort();   // 写真のある月だけ
@@ -1350,6 +1368,7 @@ function apply(fit) {
   const whole = !MONTHS.length || (from === MONTHS[0] && to === MONTHS[MONTHS.length - 1]);
   const inPeriod = it => whole || (it.d && it.d.slice(0, 7) >= from && it.d.slice(0, 7) <= to);
   shown = ds.items.filter(it => inPeriod(it) && words.every(w => it.s.includes(w)));
+  shownGeo = shown.filter(it => it.g);
   if (MONTHS.length) {
     const i = MONTHS.indexOf(from), j = MONTHS.indexOf(to);
     const oneYear = from.slice(0, 4) === to.slice(0, 4) && MONTHS.filter(ym => ym.slice(0, 4) === from.slice(0, 4)).every(ym => ym >= from && ym <= to);
@@ -1362,9 +1381,12 @@ function apply(fit) {
   $("psum").innerHTML = (MONTHS.length ? (whole ? "期間: <b>全期間</b>" : fullYear ? `期間: <b>${+from.slice(0, 4)}年(1月〜12月)</b>` : `期間: <b>${fl(from)}${from === to ? "" : "〜" + fl(to)}</b>`) : "") +
     (words.length ? ` ・ 検索: <b>${esc($("q").value.trim())}</b>` : "");
   rebuildIndex();
-  $("count").textContent = `${shown.length.toLocaleString()} 件` + (ds.nogps ? ` ・位置情報なし ${ds.nogps.toLocaleString()} 件` : "");
-  $("pworld").hidden = !shown.length;
-  if (fit && shown.length) fitMain();
+  const noGeo = shown.length - shownGeo.length;
+  $("count").textContent = `地図 ${shownGeo.length.toLocaleString()} 件` + (noGeo ? ` ・位置情報なし ${noGeo.toLocaleString()} 件` : "") +
+    (ds.excluded ? ` ・位置情報なし ${ds.excluded.toLocaleString()} 件(このファイルには入っていません)` : "");
+  $("pworld").hidden = !shownGeo.length;
+  if (fit && shownGeo.length) fitMain();
+  if (viewMode === "list") showListView();
 }
 // 写真の範囲(海外の写真が少しあっても、いちばん多い地域を表示する)
 function boundsOf(arr) {
@@ -1373,20 +1395,20 @@ function boundsOf(arr) {
   return [[s, w], [n, e]];
 }
 function fitMain() {
-  const all = boundsOf(shown);
+  const all = boundsOf(shownGeo);
   // ざっくり(約 1000km 四方)にまとめて、いちばん件数の多いまとまりを選ぶ
   const big = new Supercluster({radius: 120, maxZoom: 3, minPoints: 1});
-  big.load(shown.map(it => ({type: "Feature", properties: {i: it.i}, geometry: {type: "Point", coordinates: [it.lo, it.la]}})));
+  big.load(shownGeo.map(it => ({type: "Feature", properties: {i: it.i}, geometry: {type: "Point", coordinates: [it.lo, it.la]}})));
   const top = big.getClusters([-180, -85, 180, 85], 3).sort((a, b) => (b.properties.point_count || 1) - (a.properties.point_count || 1))[0];
-  let arr = shown;
-  if (top && top.properties.cluster && top.properties.point_count < shown.length)
+  let arr = shownGeo;
+  if (top && top.properties.cluster && top.properties.point_count < shownGeo.length)
     arr = big.getLeaves(top.properties.cluster_id, Infinity).map(f => ds.items[f.properties.i]);
-  else if (top && !top.properties.cluster && shown.length > 1) arr = [ds.items[top.properties.i]];
-  const b = arr === shown ? all : boundsOf(arr);
+  else if (top && !top.properties.cluster && shownGeo.length > 1) arr = [ds.items[top.properties.i]];
+  const b = arr === shownGeo ? all : boundsOf(arr);
   map.fitBounds(b, {padding: [30, 30], maxZoom: 11});
 }
 function fitAll() {
-  if (shown.length) map.fitBounds(boundsOf(shown), {padding: [30, 30], maxZoom: 11});
+  if (shownGeo.length) map.fitBounds(boundsOf(shownGeo), {padding: [30, 30], maxZoom: 11});
 }
 let qT;
 $("q").addEventListener("input", () => { clearTimeout(qT); qT = setTimeout(() => apply(false), 200); });
@@ -1558,7 +1580,7 @@ function openSheet(title, arr) {
   list = arr.slice();
   $("stitle").textContent = title;
   const places = {};
-  arr.forEach(it => { const k = it.a || "住所不明"; places[k] = (places[k] || 0) + 1; });
+  arr.forEach(it => { const k = it.g === false ? "位置情報なし" : (it.a || "住所不明"); places[k] = (places[k] || 0) + 1; });
   $("ssub").textContent = Object.entries(places).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${k} ${n}件`).join(" / ");
   $("sheet").hidden = false;
   renderList(true);
@@ -1586,6 +1608,24 @@ function renderList(reset) {
 }
 grid.addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) tapItem(list, +t.dataset.k); });
 $("sclose").onclick = () => { $("sheet").hidden = true; };
+// ---- 表示のしかた: 地図 / 年月ごとの一覧(位置情報のないものも含めて全部) ----
+let viewMode = store.get("viewMode2", "list");
+function showListView() {
+  const noGeo = shown.length - shownGeo.length;
+  openSheet(`一覧 ${shown.length.toLocaleString()} 件` + (noGeo ? `(うち位置情報なし ${noGeo.toLocaleString()})` : ""), shown);
+  if (ds.excluded) $("ssub").textContent = `※ このファイルには位置情報のない写真・動画(${ds.excluded.toLocaleString()} 件)が入っていません。パソコンで「位置情報のない写真・動画も入れる」にして作り直すと見られます`;
+}
+function setViewMode(m) {
+  viewMode = m; store.set("viewMode2", m);
+  $("vm-map").setAttribute("aria-pressed", String(m === "map"));
+  $("vm-list").setAttribute("aria-pressed", String(m === "list"));
+  $("sheet").classList.toggle("full", m === "list");
+  $("fab").hidden = m === "list"; $("count").hidden = m === "list";
+  if (m === "list") showListView();
+  else { $("sheet").hidden = true; setTimeout(() => map.invalidateSize(), 50); }
+}
+$("vm-map").onclick = () => setViewMode("map");
+$("vm-list").onclick = () => setViewMode("list");
 $("sort").onclick = () => { newest = !newest; store.set("newest", newest); $("sort").textContent = newest ? "新しい順" : "古い順"; renderList(true); };
 
 // 写真の大きさ(ピンチ・Ctrl+ホイール・＋－)
@@ -1680,7 +1720,8 @@ async function showV() {
   $("vpos").textContent = vlist.length > 1 ? `${vi + 1} / ${vlist.length}` : "";
   $("vprev").disabled = vi === 0; $("vnext").disabled = vi === vlist.length - 1;
   $("vname").textContent = it.n;
-  $("vmeta").textContent = `${it.d} ・ ${it.a || "住所不明"}`;
+  $("vmeta").textContent = `${it.d || "撮影日時不明"} ・ ${it.g === false ? "位置情報なし" : (it.a || "住所不明")}`;
+  $("vapple").hidden = $("vgoogle").hidden = it.g === false;
   $("vpath").textContent = "場所: " + drivePath(it).split("/").join(" › ");
   $("vapple").href = `https://maps.apple.com/?ll=${it.la},${it.lo}&q=${encodeURIComponent(it.n)}`;
   $("vopen").href = ds.sample ? "#" : openURL(it);
@@ -1690,6 +1731,7 @@ async function showV() {
   const u = await imgURL(it);
   if (vlist[vi] === it && u) img.src = u;
   if (vlist[vi] === it && !$("fs").hidden) {     // 全画面のままで前後に移ったとき
+    fsReset(false);
     if (u) $("fsimg").src = u; else $("fsimg").removeAttribute("src");
     $("fsplay").hidden = it.k !== "動画";
   }
@@ -1724,27 +1766,112 @@ $("vimgbox").addEventListener("click", e => {
   if (e.target !== $("vimg") || !$("vimg").getAttribute("src")) return;
   $("fsimg").src = $("vimg").src;
   $("fsplay").hidden = $("vplay").hidden;
+  fsReset(false);
   $("fs").hidden = false;
 });
-$("fs").addEventListener("click", () => {
-  if (fsSwiped) return;                          // めくったときは閉じない
-  $("fs").hidden = true; $("fsimg").removeAttribute("src");
+// ---- 全画面: ピンチで拡大・縮小、拡大中は指でずらす、ダブルタップで拡大/元に戻す ----
+const fz = {s: 1, x: 0, y: 0};
+function fsBox() {        // 画面の中で写真が実際に映っている範囲(拡大前)
+  const im = $("fsimg"), W = im.clientWidth, H = im.clientHeight, nw = im.naturalWidth || W, nh = im.naturalHeight || H;
+  const r = Math.min(W / nw, H / nh); const w = nw * r, h = nh * r;
+  return {W, H, w, h, l: (W - w) / 2, t: (H - h) / 2};
+}
+function fsClamp() {
+  const b = fsBox(), s = fz.s;
+  const lim = (v, size, off, view) => {
+    const cs = size * s;
+    if (cs <= view) return (view - cs) / 2 - off * s;          // 画面より小さいときは真ん中に
+    return Math.min(-off * s, Math.max(view - (off + size) * s, v));
+  };
+  fz.x = lim(fz.x, b.w, b.l, b.W); fz.y = lim(fz.y, b.h, b.t, b.H);
+}
+let fzRaf = 0;
+function fsApply(anim) {
+  const im = $("fsimg"); im.classList.toggle("anim", !!anim);
+  cancelAnimationFrame(fzRaf);
+  fzRaf = requestAnimationFrame(() => { im.style.transform = `translate3d(${fz.x}px,${fz.y}px,0) scale(${fz.s})`; });
+}
+function fsReset(anim) { fz.s = 1; fz.x = 0; fz.y = 0; fsApply(anim); }
+function fsZoomAt(px, py, ns, anim) {     // 画面上の点(px,py)を動かさずに倍率を ns に
+  const cx = (px - fz.x) / fz.s, cy = (py - fz.y) / fz.s;
+  fz.s = ns; fz.x = px - cx * ns; fz.y = py - cy * ns;
+  if (ns <= 1.001) { fz.s = 1; fz.x = 0; fz.y = 0; } else fsClamp();
+  fsApply(anim);
+}
+const zoomed = () => fz.s > 1.01;
+const FZ_MAX = 6;
+// タップ(閉じる)とダブルタップ(拡大)の区別
+let fsTapTimer = null, fsLastTap = 0;
+$("fs").addEventListener("click", e => {
+  if (fsSwiped) return;                          // めくった・つまんだ・ずらしたときは閉じない
+  const now = Date.now();
+  if (now - fsLastTap < 300) {                   // ダブルタップ
+    clearTimeout(fsTapTimer); fsLastTap = 0;
+    if (zoomed()) fsReset(true); else fsZoomAt(e.clientX, e.clientY, 2.5, true);
+    return;
+  }
+  fsLastTap = now;
+  if (zoomed()) return;                          // 拡大中の1回タップでは閉じない
+  clearTimeout(fsTapTimer);
+  fsTapTimer = setTimeout(() => {
+    $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false);
+  }, 300);
 });
-// 全画面でも左右にめくると前後の写真へ
-let fsx = null, fsSwiped = false;
-$("fs").addEventListener("touchstart", e => { if (e.touches.length === 1) fsx = e.touches[0].clientX; }, {passive: true});
+let fsx = null, fsy = null, fsSwiped = false, pinch = null, pan = null, fsMoved = false;
+const tdist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+const tmid = (a, b) => [(a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2];
+$("fs").addEventListener("touchstart", e => {
+  if (e.touches.length === 2) {
+    const [mx, my] = tmid(e.touches[0], e.touches[1]);
+    pinch = {d: tdist(e.touches[0], e.touches[1]), s: fz.s, x: fz.x, y: fz.y, mx, my}; pan = null; fsx = null; fsMoved = true;
+  } else if (e.touches.length === 1) {
+    fsMoved = false;
+    fsx = e.touches[0].clientX; fsy = e.touches[0].clientY;
+    if (zoomed()) pan = {x: fz.x, y: fz.y, sx: fsx, sy: fsy};
+  }
+}, {passive: true});
+$("fs").addEventListener("touchmove", e => {
+  e.preventDefault();                           // ページ全体が拡大・スクロールしないように
+  if (pinch && e.touches.length >= 2) {
+    const d = tdist(e.touches[0], e.touches[1]), [mx, my] = tmid(e.touches[0], e.touches[1]);
+    let ns = pinch.s * d / pinch.d; ns = Math.max(0.7, Math.min(FZ_MAX * 1.2, ns));
+    const cx = (pinch.mx - pinch.x) / pinch.s, cy = (pinch.my - pinch.y) / pinch.s;   // つまみ始めた点が指の間に残るように
+    fz.s = ns; fz.x = mx - cx * ns; fz.y = my - cy * ns;
+    fsApply(false);
+  } else if (pan && e.touches.length === 1) {
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - pan.sx) + Math.abs(t.clientY - pan.sy) > 6) fsMoved = true;
+    fz.x = pan.x + t.clientX - pan.sx; fz.y = pan.y + t.clientY - pan.sy; fsClamp(); fsApply(false);
+  }
+}, {passive: false});
+["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));   // Safari の画面拡大を止める
 $("fs").addEventListener("touchend", e => {
+  if (pinch) {
+    if (e.touches.length < 2) {
+      pinch = null;
+      if (fz.s < 1.05) fsReset(true);
+      else { if (fz.s > FZ_MAX) { const b = fsBox(); fsZoomAt(b.W / 2, b.H / 2, FZ_MAX, true); } else { fsClamp(); fsApply(true); } }
+      if (e.touches.length === 1 && zoomed()) { const t = e.touches[0]; pan = {x: fz.x, y: fz.y, sx: t.clientX, sy: t.clientY}; }
+    }
+    fsSwiped = true; setTimeout(() => { fsSwiped = false; }, 400);
+    return;
+  }
+  if (pan) {
+    pan = null;
+    if (fsMoved) { fsSwiped = true; setTimeout(() => { fsSwiped = false; }, 400); }
+    return;
+  }
   if (fsx === null) return;
-  const dx = e.changedTouches[0].clientX - fsx; fsx = null;
-  fsSwiped = Math.abs(dx) > 10; setTimeout(() => { fsSwiped = false; }, 400);
-  if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click();
+  const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
+  fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
+  if (Math.abs(dx) > Math.abs(dy)) { if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click(); }
 });
 document.addEventListener("keydown", e => {
   if ($("fs").hidden) return;
   if (e.key === "ArrowLeft") { e.stopImmediatePropagation(); $("vprev").click(); }
   if (e.key === "ArrowRight") { e.stopImmediatePropagation(); $("vnext").click(); }
 }, true);
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").hidden) { e.stopImmediatePropagation(); $("fs").click(); } }, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").hidden) { e.stopImmediatePropagation(); $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false); } }, true);
 $("vimgbox").addEventListener("touchstart", e => { if (e.touches.length === 1) sx = e.touches[0].clientX; }, {passive: true});
 $("vimgbox").addEventListener("touchend", e => {
   if (sx === null) return;
@@ -1754,6 +1881,7 @@ $("vimgbox").addEventListener("touchend", e => {
 });
 
 useDataset(makeSample());
+setViewMode(viewMode);
 offerResume();
 </script>
 
