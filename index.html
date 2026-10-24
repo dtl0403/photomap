@@ -844,6 +844,7 @@ button { cursor: pointer; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
 #vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: pan-y; }
 #vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+#vplay { pointer-events: none; }
 /* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
 #fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
 #fs[hidden] { display: none !important; }
@@ -1659,8 +1660,11 @@ document.addEventListener("keydown", e => {
 let sx = null;
 // 写真をタップ → 全画面表示 / 全画面をタップ → 元のプレビューに戻る
 let swiped = false;
-$("vimg").addEventListener("click", () => {
-  if (swiped || !$("vimg").getAttribute("src")) return;
+$("vimgbox").addEventListener("click", e => {
+  if (swiped) return;
+  const it = vlist[vi];
+  if (it && it.k === "動画") { openOriginal(it); return; }   // 動画は(小さな画像がなくても)元の動画を開いて再生する
+  if (e.target !== $("vimg") || !$("vimg").getAttribute("src")) return;
   $("fsimg").src = $("vimg").src;
   $("fsplay").hidden = $("vplay").hidden;
   $("fs").hidden = false;
