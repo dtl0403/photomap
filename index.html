@@ -865,6 +865,25 @@ button { cursor: pointer; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
 #vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: pan-y; }
 #vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+#vvid { width: 100%; height: 100%; object-fit: contain; background: #000; }
+#vvid[hidden] { display: none; }
+#vprops { min-width: 44px; justify-content: center; font-size: 20px !important; font-weight: 800; letter-spacing: 1px; }
+#props { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
+#props[hidden] { display: none !important; }
+#props .box { background: #1a2129; color: #eef2f5; width: 100%; max-width: 560px; max-height: 80vh; overflow: auto; border-radius: 16px 16px 0 0;
+              padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+#props .phead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 16px; }
+#props dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13.5px; }
+#props dt { color: #9fb0bf; white-space: nowrap; }
+#props dd { margin: 0; word-break: break-all; }
+#props .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+#props .row button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: #2f6fb6; color: #fff; font: inherit; font-size: 14px; font-weight: 700; }
+.loc { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.loc .lt { flex: 1; min-width: 0; font-size: 13px; }
+.loc .lt b { font-size: 14px; }
+.loc .lt small { display: block; color: var(--sub); word-break: break-all; }
+.loc button, .loc a { font-size: 13px; padding: 6px 10px; text-decoration: none; color: inherit; }
+#props .pnote { font-size: 11.5px; color: #8c9aa7; line-height: 1.5; margin: 12px 0 0; }
 #vplay { pointer-events: none; }
 /* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
 #fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
@@ -933,7 +952,7 @@ button { cursor: pointer; }
       </div>
       <button type="button" class="btn" id="setbtn" aria-label="設定">設定</button>
       <label class="btn primary" for="pick">ファイルを開く</label>
-      <input id="pick" class="vh" type="file" accept="application/octet-stream">
+      <input id="pick" class="vh" type="file" accept="application/octet-stream" multiple>
     </div>
     <div id="prow">
       <button type="button" id="psum" aria-label="表示する期間と検索を開く"></button>
@@ -941,7 +960,7 @@ button { cursor: pointer; }
         <button type="button" id="vm-list" aria-pressed="true">一覧</button><button type="button" id="vm-map" aria-pressed="false">地図</button>
       </div>
     </div>
-    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください。写真の情報はこの iPhone の中で読むだけで、どこにも送られません(地図の［詳細］がオンのときは、表示している範囲の地図だけを OpenFreeMap / OpenStreetMap から取り寄せます)。</div>
+    <div id="notice">いまは<b>見本</b>を表示しています。［ファイルを開く］→ ドライブの写真のフォルダにある <b>写真マップ_iPhone用.pmap</b> を選んでください(「写真マップ_iPhone用」フォルダの中で右上の「選択」→ 全部を選ぶと、動画の .pvid も一緒に読み込めます)。写真の情報はこの iPhone の中で読むだけで、どこにも送られません(地図の［詳細］がオンのときは、表示している範囲の地図だけを OpenFreeMap / OpenStreetMap から取り寄せます)。</div>
     <div id="filters" hidden>
     <div class="pmode" role="group" aria-label="期間の決め方">
       <button type="button" id="pm-range" aria-pressed="true">範囲で指定</button><button type="button" id="pm-year" aria-pressed="false">年だけ指定</button>
@@ -997,18 +1016,25 @@ button { cursor: pointer; }
     <button type="button" class="vbtn" id="vprev" aria-label="前へ">‹</button>
     <button type="button" class="vbtn" id="vnext" aria-label="次へ">›</button>
   </div>
-  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span></div>
+  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><video id="vvid" hidden controls playsinline preload="auto"></video></div>
   <div class="vinfo">
     <div class="nm" id="vname"></div>
     <div class="meta" id="vmeta"></div>
-    <div class="path" id="vpath"></div>
     <div class="acts">
       <a id="vopen" class="open" target="_blank" rel="noopener">元のファイルを開く</a>
       <a id="vapple" target="_blank" rel="noopener">Apple マップ</a>
       <a id="vgoogle" target="_blank" rel="noopener">Google マップ</a>
       <button type="button" id="vcopy">ファイル名をコピー</button>
+      <button type="button" id="vprops" aria-label="詳しい情報" title="詳しい情報">…</button>
     </div>
-    <div class="note">これは縮小したプレビューです。［元のファイルを開く］で、ドライブの元の写真・動画を「ファイル」アプリで開きます。</div>
+  </div>
+</div>
+<div id="props" hidden role="dialog" aria-modal="true" aria-labelledby="pttl">
+  <div class="box">
+    <div class="phead"><b id="pttl">詳しい情報</b><button type="button" class="vbtn" id="pclose" aria-label="閉じる">✕</button></div>
+    <dl id="plist"></dl>
+    <div class="row" id="pacts"></div>
+    <p class="pnote">一覧やプレビューの画像は縮小したものです。［元のファイルを開く］で、ドライブの元の写真・動画を「ファイル」アプリで開きます。</p>
   </div>
 </div>
 <div id="settings" hidden role="dialog" aria-label="設定">
@@ -1024,13 +1050,29 @@ button { cursor: pointer; }
     <p class="muted">パソコンでドライブの中身を変えたあと、「ファイル」アプリで違うフォルダの中身が見えたり開けなかったりするときは、［設定］→［一般］→［iPhone ストレージ］→［ファイル］→［App を取り除く］のあと入れ直してください。</p>
     <div class="row"><a class="btn" id="settest" target="_blank" rel="noopener">試す(T7 のいちばん上を開く)</a></div>
     <p class="muted">ドライブの番号: <span id="vuinfo">—</span></p>
+    <h3>元のファイルの保存場所</h3>
+    <p class="muted">［元のファイルを開く］で、どこにある元の写真・動画を開くかを選びます(5 か所まで登録できます)。Wi-Fi でつないだパソコンや、ルーター(GL-MT3600BE など)につないだドライブも、「ファイル」アプリの「サーバへ接続」でつないであれば使えます。</p>
+    <div id="loclist"></div>
+    <div class="row"><button type="button" class="btn" id="locaddbtn">保存場所を追加</button></div>
+    <div id="locform" hidden>
+      <p class="muted" style="margin-bottom:6px"><b>追加のしかた</b>: その場所にある写真か動画を 1 つ選び、その「パス」をここに貼り付けてください(パスの調べ方は下の説明)。読み込んでいる .pmap と照らし合わせて、自動で設定します。</p>
+      <label class="muted">名前 <input id="locname" type="text" placeholder="例: パソコン(Wi-Fi)" style="width:100%;font-size:16px;padding:6px;box-sizing:border-box"></label>
+      <label class="muted">ファイルのパス <textarea id="locpath" rows="3" placeholder="/private/var/mobile/Library/LiveFiles/com.apple.filesystems.smbclientd/…/2025/IMG_1234.HEIC" style="width:100%;font-size:14px;padding:6px;box-sizing:border-box"></textarea></label>
+      <p class="muted" id="locmsg"></p>
+      <div class="row"><button type="button" class="btn" id="loccancel">やめる</button><button type="button" class="btn primary" id="locsave">登録</button></div>
+      <p class="muted"><b>パスの調べ方(最初の 1 回だけ)</b>: 「ショートカット」アプリで新しいショートカットを作り、「ファイルを選択」→「ファイルの詳細を取得」(詳細を「ファイルのパス」に)→「クリップボードにコピー」の順に並べて実行し、登録したい場所の写真を 1 つ選びます。コピーされたパスをここに貼り付けます。</p>
+    </div>
+    <h3>動画(.pvid)</h3>
+    <p class="muted">パソコンで「動画も iPhone で再生できるようにする」を選ぶと、「写真マップ_iPhone用」フォルダに年ごと・月ごとの .pvid ができます。［ファイルを開く］で .pmap と一緒に選ぶと(フォルダの中で「選択」→ 全部)、一覧やプレビューから動画を再生できます。見たい年・月のものだけ選んでもかまいません。<br><span id="vidinfo">—</span></p>
+    <div class="row" id="dirrow" hidden><label class="btn" for="pickdir">フォルダごと開く</label><input id="pickdir" class="vh" type="file" webkitdirectory multiple></div>
     <h3>前回のデータ</h3>
     <p class="muted">一度読み込んだ .pmap は、この iPhone の中(このページ用の保存場所)に覚えておき、次に開いたときにすぐ表示できます。ドライブをつないでいなくても地図は見られます。ホーム画面に追加したアイコンから開くと、覚えたデータが消えにくくなります。<br><span id="savedinfo">—</span></p>
     <p class="muted" style="margin-bottom:4px">読み込んだ .pmap を覚えるか:</p>
     <label class="opt"><input type="radio" name="remmode" value="ask" id="rm-ask"><span><b>毎回聞く</b></span></label>
     <label class="opt"><input type="radio" name="remmode" value="always" id="rm-always"><span><b>いつも覚える</b>(次からすぐ開ける・iPhone の容量を使う)</span></label>
     <label class="opt"><input type="radio" name="remmode" value="never" id="rm-never"><span><b>覚えない</b>(容量を使わない・毎回ファイルを選ぶ)</span></label>
-    <div class="row"><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
+    <label class="opt"><input type="checkbox" id="remvid"><span><b>動画(.pvid)も覚える</b>(オフにすると地図と写真だけを覚えて容量を節約します。動画は元のファイルを開いて見ます)</span></label>
+    <div class="row"><button type="button" class="btn" id="forgetvid">覚えている動画だけ消す</button><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
   </div>
 </div>
 <div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
@@ -1039,6 +1081,7 @@ button { cursor: pointer; }
   <div class="box">
     <h2 id="artitle">次回すぐ開けるように覚えますか？</h2>
     <p id="arinfo"></p>
+    <label id="arvidrow" hidden style="display:flex;gap:8px;align-items:center;margin:0 0 10px;font-size:14px"><input type="checkbox" id="arvid"> <span id="arvidtxt">動画も覚える</span></label>
     <label style="display:flex;gap:8px;align-items:center;margin:0 0 14px;font-size:14px"><input type="checkbox" id="arkeep"> 次から聞かない(この選び方を使う)</label>
     <div class="row"><button type="button" class="btn" id="arno">覚えない</button><button type="button" class="btn primary" id="aryes">覚える</button></div>
   </div>
@@ -1079,6 +1122,36 @@ async function imgURL(it) {
   return p;
 }
 
+// ---- 圧縮した動画(.pvid): "PVID1\n" + JSON の長さ + JSON + mp4 を連結したもの。見るときに必要な部分だけ取り出す
+const VIDX = new Map();          // "フォルダ/ファイル名" → {file, base, o, l, d, w, h}
+let VFILES = [];
+const vkey = it => `${it.f}/${it.n}`;
+async function readPvid(file) {
+  const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+  if (String.fromCharCode(...head.slice(0, 6)) !== "PVID1\n") throw new Error(`${file.name} は動画のファイル(.pvid)ではありません`);
+  const len = ((head[6] << 24) | (head[7] << 16) | (head[8] << 8) | head[9]) >>> 0;
+  const meta = JSON.parse(await file.slice(10, 10 + len).text());
+  return {file, base: 10 + len, meta};
+}
+async function attachVideos(files) {
+  let n = 0, bad = 0;
+  for (const f of files) {
+    try {
+      const pv = await readPvid(f);
+      pv.meta.items.forEach(it => { VIDX.set(vkey(it), {file: f, base: pv.base, o: it.o, l: it.l, d: it.d, w: it.w, h: it.h}); n++; });
+      if (!VFILES.some(x => x.name === f.name && x.size === f.size)) VFILES.push(f);
+    } catch (e) { bad++; }
+  }
+  if (bad) toast(`動画のファイル ${bad} 個を読めませんでした`);
+  updateVidInfo();
+  return n;
+}
+function updateVidInfo() {
+  const el = $("vidinfo"); if (!el) return;
+  el.textContent = VFILES.length ? `いま読み込んでいる動画: ${VIDX.size.toLocaleString()} 本(${VFILES.map(f => f.name.replace(/\.pvid$/i, "")).sort().join("・")}・合計 ${sizeText(VFILES.reduce((a, f) => a + f.size, 0))})`
+                                 : "動画のファイルは読み込んでいません(動画は元のファイルを開いて見ます)";
+}
+
 async function readPack(file) {
   const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
   const magic = String.fromCharCode(...head.slice(0, 6));
@@ -1095,7 +1168,7 @@ async function readPack(file) {
   meta.items.forEach(it => { it.g = ok(it); });   // g: 地図に置けるか(位置情報がある)
   const noGeoIn = meta.items.filter(it => !it.g).length;
   return {name: file.name, root: meta.root, rootpath: meta.rp || meta.root, hasRootpath: !!meta.rp,
-          made: meta.made, vu: meta.vu || "", items: meta.items, sample: false,
+          made: meta.made, vu: meta.vu || "", items: meta.items, sample: false, vsplit: meta.vsplit || "",
           // 入っていない位置情報なしの件数(古い .pmap は位置情報のあるものだけ)
           excluded: meta.ng ? 0 : Math.max(0, (meta.nogps || 0)), noGeoIn};
 }
@@ -1525,15 +1598,23 @@ const idb = {
   del(k) { return this.run("readwrite", st => st.delete(k)); },
 };
 const sizeText = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB";
-async function rememberPack(file, d) {
+const vsig = vfiles => (vfiles || []).map(f => `${f.name}:${f.size}:${f.lastModified}`).sort().join("|");
+const sameSaved = (old, file, vfiles) => old && old.name === file.name && old.size === file.size && old.lastModified === file.lastModified
+                                        && (old.vsig || "") === vsig(vfiles);
+let remVid = store.get("remVid", true);       // 動画(.pvid)も覚えるか(容量を節約したいときはオフ)
+let CURPACK = null;                           // いま開いている .pmap
+const sumSize = fs => (fs || []).reduce((a, f) => a + f.size, 0);
+async function rememberPack(file, d, vfiles = []) {
   try {
     const old = await idb.get("meta").catch(() => null);
-    if (old && old.name === file.name && old.size === file.size && old.lastModified === file.lastModified) return;
+    if (sameSaved(old, file, vfiles)) return;
     try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
     // 中身を iPhone の中にコピーしてから覚える(外付けドライブを外しても読めるように)
     await idb.set("blob", file);     // Safari はファイルの中身ごと保存する(メモリに全部は読み込まない)
+    await idb.set("vblobs", vfiles);  // 動画の .pvid も同じように保存する
     await idb.set("meta", {name: file.name, size: file.size, lastModified: file.lastModified, root: d.root,
-                           count: d.items.length, made: d.made || "", savedAt: new Date().toISOString()});
+                           count: d.items.length, made: d.made || "", savedAt: new Date().toISOString(),
+                           vsig: vsig(vfiles), vnames: vfiles.map(f => f.name), vsize: vfiles.reduce((a, f) => a + f.size, 0)});
     toast("次回はこのデータをすぐ開けるように覚えました");
   } catch (e) {
     toast("この iPhone の空きが足りず、データを覚えられませんでした(次回もファイルを選んでください)");
@@ -1544,20 +1625,48 @@ function setRemMode(m) {
   remMode = m; store.set("remMode", m);
   ["ask", "always", "never"].forEach(k => { const r = $("rm-" + k); if (r) r.checked = k === m; });
 }
-async function maybeRemember(file, d) {
+async function maybeRemember(file, d, vfiles = []) {
   if (remMode === "never") return;
   const old = await idb.get("meta").catch(() => null);
-  if (old && old.name === file.name && old.size === file.size && old.lastModified === file.lastModified) return;   // もう覚えている
-  if (remMode === "always") { rememberPack(file, d); return; }
-  $("arinfo").textContent = `覚えると、次にこのページを開いたときドライブを選ばずにすぐ地図を表示できます。この iPhone の容量を約 ${sizeText(file.size)} 使います` +
+  if (sameSaved(old, file, remVid ? vfiles : [])) return;   // もう覚えている
+  if (remMode === "always") { rememberPack(file, d, remVid ? vfiles : []); return; }
+  const vs = sumSize(vfiles);
+  $("arvidrow").hidden = !vfiles.length;
+  $("arvid").checked = remVid;
+  $("arvidtxt").textContent = `動画(${vfiles.length} ファイル・${sizeText(vs)})も覚える`;
+  $("arinfo").textContent = `覚えると、次にこのページを開いたときドライブを選ばずにすぐ地図を表示できます。この iPhone の容量を約 ${sizeText(file.size)}` +
+    (vfiles.length ? `(動画も覚えるときは、さらに ${sizeText(vs)})` : "") + " 使います" +
     (old ? `(いま覚えている「${old.root}」と入れ替わります)。` : "。") + "あとから［設定］で消すこともできます。";
   $("arkeep").checked = false;
   $("askrem").hidden = false;
   const yes = await new Promise(res => { $("aryes").onclick = () => res(true); $("arno").onclick = () => res(false); });
   $("askrem").hidden = true;
+  if (vfiles.length) setRemVid($("arvid").checked);
   if ($("arkeep").checked) setRemMode(yes ? "always" : "never");
-  if (yes) rememberPack(file, d);
+  if (yes) rememberPack(file, d, remVid ? vfiles : []);
 }
+function setRemVid(v) { remVid = !!v; store.set("remVid", remVid); const c = $("remvid"); if (c) c.checked = remVid; }
+setRemVid(remVid);
+$("remvid").addEventListener("change", async () => {
+  setRemVid($("remvid").checked);
+  // 覚えているものに合わせる(オフ → 動画を消す / オン → いま開いている動画を覚える)
+  const m = await idb.get("meta").catch(() => null);
+  if (!m || !CURPACK || m.name !== CURPACK.name || m.size !== CURPACK.size) return;
+  if (!remVid && m.vnames && m.vnames.length) { await forgetVideos(); toast("覚えていた動画を消しました"); }
+  else if (remVid && VFILES.length) { await saveVideos(VFILES); toast("いま開いている動画も覚えました"); }
+});
+async function saveVideos(fs) {
+  try {
+    const m = await idb.get("meta");
+    if (!m) return;
+    await idb.set("vblobs", fs);
+    Object.assign(m, {vsig: vsig(fs), vnames: fs.map(f => f.name), vsize: sumSize(fs)});
+    await idb.set("meta", m);
+  } catch (e) { toast("この iPhone の空きが足りず、動画を覚えられませんでした"); }
+  showSavedInfo();
+}
+async function forgetVideos() { await saveVideos([]); try { await idb.del("vblobs"); } catch (e) {} showSavedInfo(); }
+$("forgetvid").onclick = async () => { await forgetVideos(); toast("覚えていた動画を消しました(地図と写真は覚えたままです)"); };
 function showLoading(msg) { $("loadmsg").textContent = msg; $("loading").hidden = false; }
 // 外付けドライブは準備に時間がかかることがあるので、遅いときは案内を出し、失敗したら少し待って読み直す
 async function readWithPatience(file, label) {
@@ -1573,16 +1682,19 @@ async function readWithPatience(file, label) {
     }
   } finally { clearTimeout(slow); }
 }
-async function openPack(file, label, remember) {
+async function openPack(file, label, remember, vfiles = []) {
   showLoading(`「${label}」を読み込んでいます…`);
   try {
     const d = await readWithPatience(file, label);
     showLoading(`${d.items.length.toLocaleString()} 件を地図に並べています…`);
     await new Promise(r => setTimeout(r, 30));     // 表示を更新してから処理する
+    VIDX.clear(); VFILES = [];
+    CURPACK = file;
     useDataset(d);
-    toast(`${ds.items.length.toLocaleString()} 件を読み込みました`);
+    const nv = vfiles.length ? await attachVideos(vfiles) : (updateVidInfo(), 0);
+    toast(`${ds.items.length.toLocaleString()} 件を読み込みました` + (nv ? `(動画 ${nv.toLocaleString()} 本を再生できます)` : ""));
     $("loading").hidden = true;
-    if (remember) maybeRemember(file, d);
+    if (remember) maybeRemember(file, d, vfiles);
     return true;
   } catch (err) {
     toast(err.message || "読み込めませんでした");
@@ -1591,39 +1703,63 @@ async function openPack(file, label, remember) {
     $("loading").hidden = true;
   }
 }
-$("pick").addEventListener("change", async e => {
-  const f = e.target.files && e.target.files[0];
-  e.target.value = "";
-  if (f) openPack(f, f.name, true);
-});
+// .pmap と動画の .pvid をまとめて選べる(フォルダごと選んだときも、必要なものだけ使う)
+async function openChosen(fileList) {
+  const all = [...(fileList || [])];
+  const pm = all.filter(f => /\.pmap$/i.test(f.name)), pv = all.filter(f => /\.pvid$/i.test(f.name));
+  if (pm.length) { openPack(pm[0], pm[0].name, true, pv); return; }
+  if (pv.length) {
+    if (!ds || ds.sample) { toast("動画のファイルだけでは開けません。.pmap も一緒に選んでください"); return; }
+    showLoading("動画のファイルを読み込んでいます…");
+    const n = await attachVideos(pv);
+    $("loading").hidden = true;
+    toast(`動画 ${n.toLocaleString()} 本を再生できるようにしました`);
+    if (!$("viewer").hidden && wantPlay && VIDX.has(wantPlay)) { wantPlay = ""; showV(); }
+    // いま開いている .pmap を覚えていれば、追加した動画も一緒に覚える(「動画も覚える」がオンのとき)
+    const m = await idb.get("meta").catch(() => null);
+    if (remVid && remMode !== "never" && m && CURPACK && m.name === CURPACK.name && m.size === CURPACK.size && vsig(VFILES) !== (m.vsig || "")) {
+      await saveVideos(VFILES);
+      toast(`動画 ${n.toLocaleString()} 本を再生できるようにして、覚えました`);
+    }
+    return;
+  }
+  if (all.length === 1) openPack(all[0], all[0].name, true);
+  else if (all.length) toast("選んだ中に .pmap がありませんでした");
+}
+$("pick").addEventListener("change", e => { const fs = [...(e.target.files || [])]; e.target.value = ""; openChosen(fs); });
+$("pickdir").addEventListener("change", e => { const fs = [...(e.target.files || [])]; e.target.value = ""; $("settings").hidden = true; openChosen(fs); });
+if ("webkitdirectory" in document.createElement("input")) $("dirrow").hidden = false;
 async function offerResume() {
   let m = null;
   try { m = await idb.get("meta"); } catch (e) { return; }
   if (!m) return;
-  $("rsinfo").textContent = `${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size)}${m.made ? "・" + m.made + " 作成" : ""})。この iPhone の中に覚えているので、ドライブを選ばずにすぐ開けます。`;
+  $("rsinfo").textContent = `${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size + (m.vsize || 0))}${m.vnames && m.vnames.length ? `・動画のファイル ${m.vnames.length} 個` : ""}${m.made ? "・" + m.made + " 作成" : ""})。この iPhone の中に覚えているので、ドライブを選ばずにすぐ開けます。`;
   $("resume").hidden = false;
   $("rsyes").focus();
 }
 $("rsno").onclick = () => { $("resume").hidden = true; };
 $("rsyes").onclick = async () => {
   $("resume").hidden = true;
-  let m, blob;
-  try { [m, blob] = await Promise.all([idb.get("meta"), idb.get("blob")]); } catch (e) {}
+  let m, blob, vb;
+  try { [m, blob, vb] = await Promise.all([idb.get("meta"), idb.get("blob"), idb.get("vblobs")]); } catch (e) {}
   if (!m || !blob) { toast("前回のデータが見つかりませんでした。［ファイルを開く］から選んでください"); return; }
-  const ok = await openPack(new File([blob], m.name), m.name, false);
+  const vfiles = (vb || []).map((b, i) => b instanceof File ? b : new File([b], (m.vnames || [])[i] || `video${i}.pvid`));
+  const ok = await openPack(new File([blob], m.name), m.name, false, vfiles);
   if (!ok) toast("前回のデータを読めませんでした。［ファイルを開く］から選び直してください");
 };
 document.querySelectorAll('input[name="remmode"]').forEach(r => r.addEventListener("change", () => setRemMode(r.value)));
 setRemMode(remMode);
 $("forget").onclick = async () => {
-  try { await idb.del("blob"); await idb.del("meta"); } catch (e) {}
+  try { await idb.del("blob"); await idb.del("vblobs"); await idb.del("meta"); } catch (e) {}
   $("savedinfo").textContent = "覚えているデータはありません";
   toast("覚えていたデータを消しました");
 };
 async function showSavedInfo() {
   let m = null;
   try { m = await idb.get("meta"); } catch (e) {}
-  $("savedinfo").textContent = m ? `いま覚えているもの: ${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size)})` : "覚えているデータはありません";
+  $("savedinfo").textContent = m ? `いま覚えているもの: ${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size + (m.vsize || 0))}` +
+    (m.vnames && m.vnames.length ? `・動画のファイル ${m.vnames.length} 個` : "") + ")" : "覚えているデータはありません";
+  updateVidInfo();
 }
 
 // ---------- 一覧 ----------
@@ -1763,11 +1899,75 @@ function launch(url) {
 }
 const SHORTCUT = "写真マップで開く";
 const viaShortcut = url => `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(url)}`;
-const openURL = it => filesURL(drivePath(it));
+// ---- 元のファイルの保存場所(5 か所まで)。T7 は iPhone に直接つないだドライブ、ほかは「ファイル」アプリの中のパスで登録する
+const T7LOC = {id: "t7", name: "T7(iPhone に直接つないだドライブ)", type: "t7"};
+let LOCS = store.get("locs", [T7LOC]);
+if (!LOCS.some(l => l.id === "t7")) LOCS.unshift(T7LOC);
+let curLoc = store.get("curLoc", "t7");
+const locOf = id => LOCS.find(l => l.id === id) || LOCS[0];
+const encPath = p => p.split("/").map(encodeURIComponent).join("/");
+// その場所での元のファイルの URL(その場所に入っていないファイルなら null)
+function locURL(it, loc) {
+  if (!loc || loc.type === "t7") return filesURL(drivePath(it));
+  let rel = drivePath(it);
+  if (loc.sub) {
+    if (!rel.startsWith(loc.sub + "/")) return null;
+    rel = rel.slice(loc.sub.length + 1);
+  }
+  return "shareddocuments://" + encPath(loc.base.replace(/\/+$/, "") + "/" + rel);
+}
+const locFolderURL = loc => loc.type === "t7" ? filesURL("") : "shareddocuments://" + encPath(loc.base);
+const wrapOpen = u => u;
+const openURL = (it, loc) => { const u = locURL(it, loc || locOf(curLoc)); return u ? wrapOpen(u) : null; };
+function saveLocs() { store.set("locs", LOCS); store.set("curLoc", curLoc); renderLocs(); }
+function renderLocs() {
+  const el = $("loclist"); if (!el) return;
+  el.innerHTML = LOCS.map(l => `<div class="loc"><input type="radio" name="curloc" value="${esc(l.id)}"${l.id === curLoc ? " checked" : ""} aria-label="この場所を使う">` +
+    `<div class="lt"><b>${esc(l.name)}</b><small>${l.type === "t7" ? "ドライブの番号: " + esc(driveId()) : esc(l.base) + (l.sub ? `(ドライブの「${esc(l.sub)}」にあたる)` : "")}</small></div>` +
+    `<a class="btn" href="${esc(wrapOpen(locFolderURL(l)))}" target="_blank" rel="noopener">試す</a>` +
+    (l.type === "t7" ? "" : `<button type="button" class="btn" data-del="${esc(l.id)}">削除</button>`) + `</div>`).join("");
+  el.querySelectorAll('input[name="curloc"]').forEach(r => r.onchange = () => { curLoc = r.value; saveLocs(); toast(`「${locOf(curLoc).name}」の元のファイルを開くようにしました`); });
+  el.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    LOCS = LOCS.filter(l => l.id !== b.dataset.del); if (!LOCS.some(l => l.id === curLoc)) curLoc = "t7"; saveLocs();
+  });
+  $("locaddbtn").disabled = LOCS.length >= 5;
+}
+// 貼り付けたパスと、読み込んでいる .pmap の中のファイルを照らし合わせて、その場所の「入り口」を割り出す
+function deriveLoc(raw) {
+  let p = raw.trim().replace(/^file:\/\//, "").replace(/^shareddocuments:\/\//, "");
+  try { p = decodeURIComponent(p); } catch (e) {}
+  const ps = p.split("/").filter(Boolean);
+  if (ps.length < 2) return {err: "パスの形が正しくないようです。ファイルのパスを丸ごと貼り付けてください。"};
+  if (!ds || ds.sample) return {err: "先に .pmap を読み込んでから登録してください(照らし合わせに使います)。"};
+  const name = ps[ps.length - 1];
+  let best = null;
+  for (const it of ds.items) {
+    if (it.n !== name) continue;
+    const ds_ = drivePath(it).split("/");
+    let k = 0;
+    while (k < ds_.length && k < ps.length && ds_[ds_.length - 1 - k] === ps[ps.length - 1 - k]) k++;
+    if (!best || k > best.k) best = {k, ds_};
+  }
+  if (!best) return {err: `「${name}」が、読み込んでいる .pmap の中に見つかりませんでした。この .pmap に入っている写真・動画を選んでください。`};
+  return {base: "/" + ps.slice(0, ps.length - best.k).join("/"), sub: best.ds_.slice(0, best.ds_.length - best.k).join("/")};
+}
+$("locaddbtn").onclick = () => { $("locform").hidden = false; $("locmsg").textContent = ""; $("locname").value = ""; $("locpath").value = ""; };
+$("loccancel").onclick = () => { $("locform").hidden = true; };
+$("locsave").onclick = () => {
+  const r = deriveLoc($("locpath").value);
+  if (r.err) { $("locmsg").textContent = r.err; return; }
+  const loc = {id: "L" + Date.now(), name: $("locname").value.trim() || "保存場所 " + LOCS.length, type: "path", base: r.base, sub: r.sub};
+  LOCS.push(loc); curLoc = loc.id; saveLocs();
+  $("locform").hidden = true;
+  toast(`「${loc.name}」を登録しました。［試す］で開けるか確かめてください`);
+};
+renderLocs();
 function openOriginal(it) {
   if (ds.sample) { toast("見本のデータです。［ファイルを開く］で .pmap を読み込むと使えます"); return; }
+  const u = openURL(it);
+  if (!u) { toast(`「${locOf(curLoc).name}」には、このファイルは入っていません。［…］から別の場所で開けます`); return; }
   toast(`「${it.n}」を開いています…`);
-  launch(openURL(it));
+  launch(u);
 }
 function setTapMode(m) {
   tapMode = m; store.set("tapMode2", m);
@@ -1776,7 +1976,7 @@ function setTapMode(m) {
 setTapMode(tapMode);
 document.querySelectorAll('input[name="tapmode"]').forEach(r => r.addEventListener("change", () => setTapMode(r.value)));
 $("settest").href = filesURL("");
-$("setbtn").onclick = () => { showSavedInfo(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
+$("setbtn").onclick = () => { showSavedInfo(); renderLocs(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
 $("setclose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").hidden = true; });
 function tapItem(arr, k) { if (tapMode === "original") openOriginal(arr[k]); else openViewer(arr, k); }
@@ -1790,26 +1990,68 @@ async function showV() {
   $("vname").textContent = it.n;
   $("vmeta").textContent = `${it.d || "撮影日時不明"} ・ ${it.g === false ? "位置情報なし" : (it.a || "住所不明")}`;
   $("vapple").hidden = $("vgoogle").hidden = it.g === false;
-  $("vpath").textContent = "場所: " + drivePath(it).split("/").join(" › ");
   $("vapple").href = `https://maps.apple.com/?ll=${it.la},${it.lo}&q=${encodeURIComponent(it.n)}`;
-  $("vopen").href = ds.sample ? "#" : openURL(it);
+  $("vopen").href = ds.sample ? "#" : (openURL(it) || "#");
   $("vgoogle").href = `https://www.google.com/maps?q=${it.la},${it.lo}`;
-  $("vplay").hidden = it.k !== "動画";
-  const img = $("vimg"); img.removeAttribute("src");
+  stopVid();
+  const ve = it.k === "動画" ? VIDX.get(vkey(it)) : null;
+  $("vplay").hidden = it.k !== "動画" || !!ve;
+  const img = $("vimg"); img.removeAttribute("src"); img.hidden = !!ve;
+  if (ve) {        // 圧縮した動画があれば、この場ですぐ再生する(タップの操作の中で再生を始めるので、音も出る)
+    const v = $("vvid");
+    vidURL = URL.createObjectURL(ve.file.slice(ve.base + ve.o, ve.base + ve.o + ve.l, "video/mp4"));
+    v.src = vidURL; v.hidden = false;
+    if (autoPlay) v.play().catch(() => {});
+  }
   const u = await imgURL(it);
-  if (vlist[vi] === it && u) img.src = u;
+  if (vlist[vi] === it && u) { if (ve) $("vvid").poster = u; else img.src = u; }
   if (vlist[vi] === it && !$("fs").hidden) {     // 全画面のままで前後に移ったとき
     fsReset(false);
     if (u) $("fsimg").src = u; else $("fsimg").removeAttribute("src");
     $("fsplay").hidden = it.k !== "動画";
   }
 }
+let vidURL = null, autoPlay = true, wantPlay = "";
+function stopVid() {
+  const v = $("vvid");
+  if (!v) return;
+  v.pause(); v.removeAttribute("src"); v.removeAttribute("poster"); v.load(); v.hidden = true;
+  if (vidURL) { URL.revokeObjectURL(vidURL); vidURL = null; }
+}
 function openViewer(arr, k) { vlist = arr; vi = k; $("viewer").hidden = false; showV(); $("vclose").focus(); }
-$("vclose").onclick = () => { $("viewer").hidden = true; };
+$("vclose").onclick = () => { stopVid(); $("props").hidden = true; $("viewer").hidden = true; };
 $("vprev").onclick = () => { if (vi > 0) { vi--; showV(); } };
 $("vnext").onclick = () => { if (vi < vlist.length - 1) { vi++; showV(); } };
+// ---- 「…」: 開くのに直接関係のない情報(保存場所・圧縮した動画の入ったファイルなど)
+const pvidOf = it => !it.d ? "日付不明" : ds.vsplit === "month" ? it.d.slice(0, 7) : it.d.slice(0, 4);
+const durText = s => s >= 60 ? `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒` : `${Math.round(s)} 秒`;
+function showProps() {
+  const it = vlist[vi];
+  const rows = [["ファイル名", it.n], ["種類", it.k || "写真"], ["撮影日時", it.d || "不明"],
+                ["場所", it.g === false ? "位置情報なし" : (it.a || "住所不明")]];
+  if (it.g !== false && Number.isFinite(it.la)) rows.push(["緯度・経度", `${it.la.toFixed(5)}, ${it.lo.toFixed(5)}`]);
+  rows.push(["保存場所", drivePath(it).split("/").join(" › ")]);
+  rows.push(["元のファイルを開く場所", locOf(curLoc).name]);
+  const acts = [];
+  if (!ds.sample && LOCS.length > 1) LOCS.forEach(l => { const u = openURL(it, l); if (u) acts.push([`${l.name.replace(/\s*[（(].*[）)]$/, "")}で開く`, () => launch(u)]); });
+  if (it.k === "動画") {
+    const ve = VIDX.get(vkey(it));
+    if (ve) rows.push(["iPhone 用の動画", `${ve.file.name}(読み込み済み)・${sizeText(ve.l)}` + (ve.w ? `・${ve.w}×${ve.h}` : "") + (ve.d ? `・${durText(ve.d)}` : "")]);
+    else if (ds.vsplit) { rows.push(["iPhone 用の動画", `${pvidOf(it)}.pvid に入っています(まだ読み込んでいません)`]); acts.push(["このファイルを追加", () => { wantPlay = vkey(it); $("props").hidden = true; $("pick").click(); }]); }
+    else rows.push(["iPhone 用の動画", "作っていません(元の動画を開いて見ます)"]);
+  }
+  $("plist").innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  $("pacts").innerHTML = "";
+  acts.forEach(([t, fn]) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.onclick = fn; $("pacts").appendChild(b); });
+  $("pacts").hidden = !acts.length;
+  $("props").hidden = false;
+}
+$("vprops").onclick = showProps;
+$("pclose").onclick = () => { $("props").hidden = true; };
+$("props").addEventListener("click", e => { if (e.target.id === "props") $("props").hidden = true; });
 $("vopen").addEventListener("click", e => {
   if (ds.sample) { e.preventDefault(); toast("見本のデータです。［ファイルを開く］で .pmap を読み込むと使えます"); return; }
+  if ($("vopen").getAttribute("href") === "#") { e.preventDefault(); toast(`「${locOf(curLoc).name}」には、このファイルは入っていません。［…］から別の場所で開けます`); return; }
   toast(`「${vlist[vi].n}」を開いています…`);
 });
 $("vcopy").onclick = () => {
@@ -1830,7 +2072,10 @@ let swiped = false;
 $("vimgbox").addEventListener("click", e => {
   if (swiped) return;
   const it = vlist[vi];
-  if (it && it.k === "動画") { openOriginal(it); return; }   // 動画は(小さな画像がなくても)元の動画を開いて再生する
+  if (it && it.k === "動画") {
+    if (VIDX.has(vkey(it))) return;                          // 圧縮した動画はこの場で再生(操作は動画の下のボタンで)
+    openOriginal(it); return;                                // 動画は(小さな画像がなくても)元の動画を開いて再生する
+  }
   if (e.target !== $("vimg") || !$("vimg").getAttribute("src")) return;
   $("fsimg").src = $("vimg").src;
   $("fsplay").hidden = $("vplay").hidden;
@@ -1940,7 +2185,12 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") { e.stopImmediatePropagation(); $("vnext").click(); }
 }, true);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").hidden) { e.stopImmediatePropagation(); $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false); } }, true);
-$("vimgbox").addEventListener("touchstart", e => { if (e.touches.length === 1) sx = e.touches[0].clientX; }, {passive: true});
+$("vimgbox").addEventListener("touchstart", e => {
+  if (e.touches.length !== 1) return;
+  // 動画の再生バー(下のほう)を指で動かしているときは、前後の写真に移らない
+  if (e.target.id === "vvid" && e.touches[0].clientY > e.target.getBoundingClientRect().bottom - 90) { sx = null; return; }
+  sx = e.touches[0].clientX;
+}, {passive: true});
 $("vimgbox").addEventListener("touchend", e => {
   if (sx === null) return;
   const dx = e.changedTouches[0].clientX - sx; sx = null;
