@@ -2,6 +2,11 @@
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="写真マップ"><link rel="apple-touch-icon" href="apple-touch-icon.png?v=2"><link rel="icon" href="apple-touch-icon.png?v=2"><style>body{margin:0}[hidden]{display:none!important}</style></head><body>
 <title>写真マップ iPhone</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<script>
+// 元のファイルを開いて戻ってきたとき(ページが読み込み直されたとき)は、最初の画面を見せずに直前のプレビューに戻す
+try { var rv = JSON.parse(localStorage.getItem("photomap.returnView") || "null");
+      if (rv && Date.now() - rv.at < 3600000) document.documentElement.classList.add("returning"); } catch (e) {}
+</script>
 <style>
 
 
@@ -738,6 +743,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .marker-cluster span {
 	line-height: 30px;
 	}
+html.returning body::after { content: ""; position: fixed; inset: 0; z-index: 99999; background: #000; }
+html.returning #toast, html.returning #loading { visibility: hidden; }
+</style>
+<style>
 /* 画面いっぱいの地図+下から引き出す一覧(幅の広い画面では右側の一覧)。写真ライブラリの地図アプリの作法に合わせる */
 :root {
   --bg: #ffffff; --fg: #17212b; --sub: #56626e; --line: #dbe1e7; --chip: #f1f4f7;
@@ -1691,7 +1700,7 @@ async function openPack(file, label, remember, vfiles = []) {
     CURPACK = file;
     useDataset(d);
     const nv = vfiles.length ? await attachVideos(vfiles) : (updateVidInfo(), 0);
-    toast(`${ds.items.length.toLocaleString()} 件を読み込みました` + (nv ? `(動画 ${nv.toLocaleString()} 本を再生できます)` : ""));
+    if (!returning()) toast(`${ds.items.length.toLocaleString()} 件を読み込みました` + (nv ? `(動画 ${nv.toLocaleString()} 本を再生できます)` : ""));
     $("loading").hidden = true;
     restoreView();
     if (remember) maybeRemember(file, d, vfiles);
@@ -1731,8 +1740,8 @@ $("pickdir").addEventListener("change", e => { const fs = [...(e.target.files ||
 if ("webkitdirectory" in document.createElement("input")) $("dirrow").hidden = false;
 async function offerResume() {
   let m = null;
-  try { m = await idb.get("meta"); } catch (e) { return; }
-  if (!m) return;
+  try { m = await idb.get("meta"); } catch (e) { endReturning(); return; }
+  if (!m) { endReturning(); return; }
   resumeSaved();        // 確認は出さずに、覚えている前回のデータを自動で開く
 }
 $("rsno").onclick = () => { $("resume").hidden = true; };
@@ -1744,7 +1753,7 @@ async function resumeSaved() {
   if (!m || !blob) { toast("前回のデータが見つかりませんでした。［ファイルを開く］から選んでください"); return; }
   const vfiles = (vb || []).map((b, i) => b instanceof File ? b : new File([b], (m.vnames || [])[i] || `video${i}.pvid`));
   const ok = await openPack(new File([blob], m.name), m.name, false, vfiles);
-  if (!ok) toast("前回のデータを読めませんでした。［ファイルを開く］から選び直してください");
+  if (!ok) { endReturning(); toast("前回のデータを読めませんでした。［ファイルを開く］から選び直してください"); }
 }
 document.querySelectorAll('input[name="remmode"]').forEach(r => r.addEventListener("change", () => setRemMode(r.value)));
 setRemMode(remMode);
@@ -2009,13 +2018,19 @@ function saveView(it) {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && !$("viewer").hidden) { try { localStorage.removeItem(VIEW_KEY); } catch (e) {} }
 });
+const returning = () => document.documentElement.classList.contains("returning");
+function endReturning() { document.documentElement.classList.remove("returning"); }
+setTimeout(endReturning, 12000);        // 何かあっても、いつまでも黒い画面にはしない
 function restoreView() {
+  if (!restoreView_()) endReturning();
+}
+function restoreView_() {
   let v = null;
   try { v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); localStorage.removeItem(VIEW_KEY); } catch (e) {}
-  if (!v || !ds || ds.sample || v.root !== ds.root || Date.now() - v.at > 60 * 60 * 1000) return;   // 1 時間以内に開いたものだけ
+  if (!v || !ds || ds.sample || v.root !== ds.root || Date.now() - v.at > 60 * 60 * 1000) return false;   // 1 時間以内に開いたものだけ
   const byKey = new Map(ds.items.map(it => [vkey(it), it]));
   const target = byKey.get(v.key);
-  if (!target) return;
+  if (!target) return false;
   if (v.center && viewMode === "map") map.setView(v.center, v.zoom, {animate: false});
   let arr = (v.keys || []).map(k => byKey.get(k)).filter(Boolean);
   if (!arr.length) arr = [target];
@@ -2024,6 +2039,8 @@ function restoreView() {
   autoPlay = false;            // 戻ったときは、動画を勝手に再生しない
   openViewer(arr, Math.max(0, arr.indexOf(target)));
   setTimeout(() => { autoPlay = true; }, 500);
+  setTimeout(endReturning, 120);   // プレビューが出てから黒い画面を外す
+  return true;
 }
 function setTapMode(m) {
   tapMode = m; store.set("tapMode2", m);
