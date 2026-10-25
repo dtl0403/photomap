@@ -1732,12 +1732,11 @@ async function offerResume() {
   let m = null;
   try { m = await idb.get("meta"); } catch (e) { return; }
   if (!m) return;
-  $("rsinfo").textContent = `${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size + (m.vsize || 0))}${m.vnames && m.vnames.length ? `・動画のファイル ${m.vnames.length} 個` : ""}${m.made ? "・" + m.made + " 作成" : ""})。この iPhone の中に覚えているので、ドライブを選ばずにすぐ開けます。`;
-  $("resume").hidden = false;
-  $("rsyes").focus();
+  resumeSaved();        // 確認は出さずに、覚えている前回のデータを自動で開く
 }
 $("rsno").onclick = () => { $("resume").hidden = true; };
-$("rsyes").onclick = async () => {
+$("rsyes").onclick = () => resumeSaved();
+async function resumeSaved() {
   $("resume").hidden = true;
   let m, blob, vb;
   try { [m, blob, vb] = await Promise.all([idb.get("meta"), idb.get("blob"), idb.get("vblobs")]); } catch (e) {}
@@ -1745,7 +1744,7 @@ $("rsyes").onclick = async () => {
   const vfiles = (vb || []).map((b, i) => b instanceof File ? b : new File([b], (m.vnames || [])[i] || `video${i}.pvid`));
   const ok = await openPack(new File([blob], m.name), m.name, false, vfiles);
   if (!ok) toast("前回のデータを読めませんでした。［ファイルを開く］から選び直してください");
-};
+}
 document.querySelectorAll('input[name="remmode"]').forEach(r => r.addEventListener("change", () => setRemMode(r.value)));
 setRemMode(remMode);
 $("forget").onclick = async () => {
