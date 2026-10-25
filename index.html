@@ -1693,6 +1693,7 @@ async function openPack(file, label, remember, vfiles = []) {
     const nv = vfiles.length ? await attachVideos(vfiles) : (updateVidInfo(), 0);
     toast(`${ds.items.length.toLocaleString()} 件を読み込みました` + (nv ? `(動画 ${nv.toLocaleString()} 本を再生できます)` : ""));
     $("loading").hidden = true;
+    restoreView();
     if (remember) maybeRemember(file, d, vfiles);
     return true;
   } catch (err) {
@@ -1990,7 +1991,39 @@ function openOriginal(it) {
   const u = openURL(it);
   if (!u) { toast(`「${locOf(curLoc).name}」には、このファイルは入っていません。［…］から別の場所で開けます`); return; }
   toast(`「${it.n}」を開いています…`);
+  saveView(it);
   launch(u);
+}
+// ---- 元のファイルを開いて戻ってきたとき、ページが読み込み直されても、直前のプレビューに戻れるようにする
+// (ホーム画面のアイコンから使っていると、iPhone がページを読み込み直すことがある)
+const VIEW_KEY = "photomap.returnView";
+function saveView(it) {
+  try {
+    const keys = vlist.length <= 6000 ? vlist.map(vkey) : null;
+    localStorage.setItem(VIEW_KEY, JSON.stringify({at: Date.now(), root: ds.root, key: vkey(it), keys,
+      gridTop: $("grid") ? $("grid").scrollTop : 0, sheetOpen: !$("sheet").hidden, title: $("stitle").textContent,
+      center: map.getCenter(), zoom: map.getZoom()}));
+  } catch (e) {}
+}
+// ページが読み込み直されずにそのまま戻ってきたときは、覚えた状態は使わない(次に開いたときに戻らないように)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !$("viewer").hidden) { try { localStorage.removeItem(VIEW_KEY); } catch (e) {} }
+});
+function restoreView() {
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); localStorage.removeItem(VIEW_KEY); } catch (e) {}
+  if (!v || !ds || ds.sample || v.root !== ds.root || Date.now() - v.at > 60 * 60 * 1000) return;   // 1 時間以内に開いたものだけ
+  const byKey = new Map(ds.items.map(it => [vkey(it), it]));
+  const target = byKey.get(v.key);
+  if (!target) return;
+  if (v.center && viewMode === "map") map.setView(v.center, v.zoom, {animate: false});
+  let arr = (v.keys || []).map(k => byKey.get(k)).filter(Boolean);
+  if (!arr.length) arr = [target];
+  if (v.sheetOpen && viewMode !== "list") openSheet(v.title || "", arr);
+  setTimeout(() => { if (v.gridTop && $("grid")) $("grid").scrollTop = v.gridTop; }, 300);
+  autoPlay = false;            // 戻ったときは、動画を勝手に再生しない
+  openViewer(arr, Math.max(0, arr.indexOf(target)));
+  setTimeout(() => { autoPlay = true; }, 500);
 }
 function setTapMode(m) {
   tapMode = m; store.set("tapMode2", m);
@@ -2056,7 +2089,7 @@ function showProps() {
   rows.push(["保存場所", drivePath(it).split("/").join(" › ")]);
   rows.push(["元のファイルを開く場所", locOf(curLoc).name]);
   const acts = [];
-  if (!ds.sample && LOCS.length > 1) LOCS.forEach(l => { const u = openURL(it, l); if (u) acts.push([`${l.name.replace(/\s*[（(].*[）)]$/, "")}で開く`, () => launch(u)]); });
+  if (!ds.sample && LOCS.length > 1) LOCS.forEach(l => { const u = openURL(it, l); if (u) acts.push([`${l.name.replace(/\s*[（(].*[）)]$/, "")}で開く`, () => { saveView(it); launch(u); }]); });
   if (it.k === "動画") {
     const ve = VIDX.get(vkey(it));
     if (ve) rows.push(["iPhone 用の動画", `${ve.file.name}(読み込み済み)・${sizeText(ve.l)}` + (ve.w ? `・${ve.w}×${ve.h}` : "") + (ve.d ? `・${durText(ve.d)}` : "")]);
@@ -2075,6 +2108,7 @@ $("props").addEventListener("click", e => { if (e.target.id === "props") $("prop
 $("vopen").addEventListener("click", e => {
   if (ds.sample) { e.preventDefault(); toast("見本のデータです。［ファイルを開く］で .pmap を読み込むと使えます"); return; }
   if ($("vopen").getAttribute("href") === "#") { e.preventDefault(); toast(`「${locOf(curLoc).name}」には、このファイルは入っていません。［…］から別の場所で開けます`); return; }
+  saveView(vlist[vi]);
   toast(`「${vlist[vi].n}」を開いています…`);
 });
 $("vcopy").onclick = () => {
