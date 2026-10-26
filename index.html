@@ -1134,6 +1134,19 @@ async function imgURL(it) {
 const VIDX = new Map();          // "フォルダ/ファイル名" → {file, base, o, l, d, w, h}
 let VFILES = [];
 const vkey = it => `${it.f}/${it.n}`;
+// 動画を探す。パソコンで写真のフォルダを移したあと、.pvid だけ前の場所(例: 写真動画/2024)のままのことがあるので、
+// 見つからないときは、ファイル名が同じで、フォルダの終わりの部分が合うもの(1 つだけのとき)を使う
+const VBYNAME = new Map();       // ファイル名 → ["フォルダ/ファイル名", …]
+const nkey = k => k.replace(/^(\.\/)+/, "");
+function vgetKey(k) {
+  const e = VIDX.get(k);
+  if (e) return e;
+  const ks = VBYNAME.get(k.slice(k.lastIndexOf("/") + 1));
+  if (!ks) return null;
+  const a = nkey(k), m = ks.filter(x => { const b = nkey(x); return b === a || b.endsWith("/" + a) || a.endsWith("/" + b); });
+  return m.length === 1 ? VIDX.get(m[0]) : null;
+}
+const vget = it => it && it.k === "動画" ? vgetKey(vkey(it)) : null;
 async function readPvid(file) {
   const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
   if (String.fromCharCode(...head.slice(0, 6)) !== "PVID1\n") throw new Error(`${file.name} は動画のファイル(.pvid)ではありません`);
@@ -1146,7 +1159,11 @@ async function attachVideos(files) {
   for (const f of files) {
     try {
       const pv = await readPvid(f);
-      pv.meta.items.forEach(it => { VIDX.set(vkey(it), {file: f, base: pv.base, o: it.o, l: it.l, d: it.d, w: it.w, h: it.h}); n++; });
+      pv.meta.items.forEach(it => {
+        const k = vkey(it);
+        if (!VIDX.has(k)) { const a = VBYNAME.get(it.n) || []; a.push(k); VBYNAME.set(it.n, a); }
+        VIDX.set(k, {file: f, base: pv.base, o: it.o, l: it.l, d: it.d, w: it.w, h: it.h}); n++;
+      });
       if (!VFILES.some(x => x.name === f.name && x.size === f.size)) VFILES.push(f);
     } catch (e) { bad++; }
   }
@@ -1696,7 +1713,7 @@ async function openPack(file, label, remember, vfiles = []) {
     const d = await readWithPatience(file, label);
     showLoading(`${d.items.length.toLocaleString()} 件を地図に並べています…`);
     await new Promise(r => setTimeout(r, 30));     // 表示を更新してから処理する
-    VIDX.clear(); VFILES = [];
+    VIDX.clear(); VBYNAME.clear(); VFILES = [];
     CURPACK = file;
     useDataset(d);
     const nv = vfiles.length ? await attachVideos(vfiles) : (updateVidInfo(), 0);
@@ -1723,7 +1740,7 @@ async function openChosen(fileList) {
     const n = await attachVideos(pv);
     $("loading").hidden = true;
     toast(`動画 ${n.toLocaleString()} 本を再生できるようにしました`);
-    if (!$("viewer").hidden && wantPlay && VIDX.has(wantPlay)) { wantPlay = ""; showV(); }
+    if (!$("viewer").hidden && wantPlay && vgetKey(wantPlay)) { wantPlay = ""; showV(); }
     // いま開いている .pmap を覚えていれば、追加した動画も一緒に覚える(「動画も覚える」がオンのとき)
     const m = await idb.get("meta").catch(() => null);
     if (remVid && remMode !== "never" && m && CURPACK && m.name === CURPACK.name && m.size === CURPACK.size && vsig(VFILES) !== (m.vsig || "")) {
@@ -2008,8 +2025,12 @@ function openOriginal(it) {
 const VIEW_KEY = "photomap.returnView";
 function saveView(it) {
   try {
-    const keys = vlist.length <= 6000 ? vlist.map(vkey) : null;
-    localStorage.setItem(VIEW_KEY, JSON.stringify({at: Date.now(), root: ds.root, key: vkey(it), keys, viewer: !$("viewer").hidden,
+    // 一覧(全件の一覧のときは、読み込み直したときに同じものが作られるので覚えない)と、プレビューで前後に移れる範囲
+    const viewer = !$("viewer").hidden, sheetOpen = !$("sheet").hidden;
+    const sheetKeys = sheetOpen && viewMode !== "list" && list.length <= 20000 ? list.map(vkey) : null;
+    const vSame = vlist === list;
+    const keys = viewer && !vSame && vlist.length <= 20000 ? vlist.map(vkey) : null;
+    localStorage.setItem(VIEW_KEY, JSON.stringify({at: Date.now(), root: ds.root, key: vkey(it), keys, viewer, vSame, sheetKeys,
       gridTop: $("grid") ? $("grid").scrollTop : 0, sheetOpen: !$("sheet").hidden, title: $("stitle").textContent,
       center: map.getCenter(), zoom: map.getZoom()}));
   } catch (e) {}
@@ -2032,9 +2053,14 @@ function restoreView_() {
   const target = byKey.get(v.key);
   if (!target) return false;
   if (v.center && viewMode === "map") map.setView(v.center, v.zoom, {animate: false});
-  let arr = (v.keys || []).map(k => byKey.get(k)).filter(Boolean);
-  if (!arr.length) arr = [target];
-  if (v.sheetOpen && viewMode !== "list") openSheet(v.title || "", arr);
+  // 一覧: 一覧モードなら読み込み直したときに全件の一覧ができているので、そのまま。地図モードで開いていた一覧は、覚えた中身で開き直す
+  if (v.sheetOpen && viewMode !== "list" && v.sheetKeys && v.sheetKeys.length) {
+    const sa = v.sheetKeys.map(k => byKey.get(k)).filter(Boolean);
+    if (sa.length) openSheet(v.title || "", sa);
+  }
+  // プレビューで前後に移れる範囲: 一覧と同じなら今の一覧、そうでなければ覚えたもの
+  let arr = v.vSame && !$("sheet").hidden && list.includes(target) ? list : (v.keys || []).map(k => byKey.get(k)).filter(Boolean);
+  if (!arr.length || !arr.includes(target)) arr = [target];
   setTimeout(() => { if (v.gridTop && $("grid")) $("grid").scrollTop = v.gridTop; }, 300);
   if (v.viewer === false) {     // 一覧から直接開いたときは、一覧に戻る(プレビューは出さない)
     setTimeout(endReturning, 350);
@@ -2061,7 +2087,7 @@ function tapItem(arr, k) {
   if (it && it.k === "動画") {
     // 動画: 圧縮した動画(.pvid)を読み込んでいれば、この画面ですぐ再生する(元の動画は［元のファイルを開く］で開く)。
     // 読み込んでいなければ、元の動画を開く
-    if (VIDX.has(vkey(it))) { openViewer(arr, k); return; }
+    if (vget(it)) { openViewer(arr, k); return; }
     if (!ds.sample) { openOriginal(it); return; }
   }
   if (tapMode === "original") openOriginal(it); else openViewer(arr, k);
@@ -2080,7 +2106,7 @@ async function showV() {
   $("vopen").href = ds.sample ? "#" : (openURL(it) || "#");
   $("vgoogle").href = `https://www.google.com/maps?q=${it.la},${it.lo}`;
   stopVid();
-  const ve = it.k === "動画" ? VIDX.get(vkey(it)) : null;
+  const ve = vget(it);
   $("vplay").hidden = it.k !== "動画" || !!ve;
   const img = $("vimg"); img.removeAttribute("src"); img.hidden = !!ve;
   if (ve) {        // 圧縮した動画があれば、この場ですぐ再生する(タップの操作の中で再生を始めるので、音も出る)
@@ -2121,7 +2147,7 @@ function showProps() {
   const acts = [];
   if (!ds.sample && LOCS.length > 1) LOCS.forEach(l => { const u = openURL(it, l); if (u) acts.push([`${l.name.replace(/\s*[（(].*[）)]$/, "")}で開く`, () => { saveView(it); launch(u); }]); });
   if (it.k === "動画") {
-    const ve = VIDX.get(vkey(it));
+    const ve = vget(it);
     if (ve) rows.push(["iPhone 用の動画", `${ve.file.name}(読み込み済み)・${sizeText(ve.l)}` + (ve.w ? `・${ve.w}×${ve.h}` : "") + (ve.d ? `・${durText(ve.d)}` : "")]);
     else if (ds.vsplit) { rows.push(["iPhone 用の動画", `${pvidOf(it)}.pvid に入っています(まだ読み込んでいません)`]); acts.push(["このファイルを追加", () => { wantPlay = vkey(it); $("props").hidden = true; $("pick").click(); }]); }
     else rows.push(["iPhone 用の動画", "作っていません(元の動画を開いて見ます)"]);
@@ -2160,7 +2186,7 @@ $("vimgbox").addEventListener("click", e => {
   if (swiped) return;
   const it = vlist[vi];
   if (it && it.k === "動画") {
-    if (VIDX.has(vkey(it))) return;                          // 圧縮した動画はこの場で再生(操作は動画の下のボタンで)
+    if (vget(it)) return;                          // 圧縮した動画はこの場で再生(操作は動画の下のボタンで)
     openOriginal(it); return;                                // 動画は(小さな画像がなくても)元の動画を開いて再生する
   }
   if (e.target !== $("vimg") || !$("vimg").getAttribute("src")) return;
