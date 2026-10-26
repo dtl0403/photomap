@@ -876,6 +876,9 @@ button { cursor: pointer; }
 #vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
 #vvwrap { position: absolute; inset: 0; }
 #vvwrap[hidden] { display: none; }
+#vvbig { position: absolute; left: 50%; top: calc(50% - 24px); transform: translate(-50%, -50%); width: 72px; height: 72px; border-radius: 50%; border: 0; background: rgba(0,0,0,.5); z-index: 2; }
+#vvbig::after { content: ""; position: absolute; left: 28px; top: 20px; border-left: 25px solid #fff; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
+#vvbig[hidden] { display: none; }
 .vz-box { position: absolute; left: 0; right: 0; top: 0; bottom: 48px; overflow: hidden; touch-action: none; background: #000; }
 .vz-box video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; background: #000; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .vz-ctl { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #111; color: #fff; font: 13px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
@@ -1033,7 +1036,7 @@ button { cursor: pointer; }
     <button type="button" class="vbtn" id="vprev" aria-label="前へ">‹</button>
     <button type="button" class="vbtn" id="vnext" aria-label="次へ">›</button>
   </div>
-  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><div class="vz-ctl" id="vvctl"></div></div></div>
+  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><button type="button" id="vvbig" aria-label="再生"></button><div class="vz-ctl" id="vvctl"></div></div></div>
   <div class="vinfo">
     <div class="nm" id="vname"></div>
     <div class="meta" id="vmeta"></div>
@@ -1058,10 +1061,10 @@ button { cursor: pointer; }
   <div class="panel">
     <div class="row" style="align-items:center"><h2 style="flex:1">設定</h2><button type="button" class="btn" id="setclose">閉じる</button></div>
     <h3>サムネイルをタップしたとき</h3>
-    <label class="opt"><input type="radio" name="tapmode" value="original" id="tm-original">
-      <span><b>元の写真・動画をすぐ開く</b><br>ドライブの元のファイルを「ファイル」アプリで開きます。下の準備(1 回だけ)が必要です</span></label>
     <label class="opt"><input type="radio" name="tapmode" value="preview" id="tm-preview">
-      <span><b>この画面でプレビューを見る</b>(標準)<br>縮小した画像と、撮影日時・場所を表示します。そこからも［元のファイルを開く］ができます</span></label>
+      <span><b>プレビュー画面を表示する</b>(標準)<br>縮小した画像と、撮影日時・場所を表示します。動画は再生マークの付いた状態で止まっています。そこから［元のファイルを開く］もできます</span></label>
+    <label class="opt"><input type="radio" name="tapmode" value="direct" id="tm-direct">
+      <span><b>プレビュー画面を表示しない</b><br>プレビューの画像をタップしたときと同じ動きをします。写真はすぐ全画面で表示し、動画は iPhone 用の動画(.pvid)があればすぐ再生、なければ元のファイルを開きます</span></label>
     <h3>しくみ</h3>
     <p class="muted">タップすると、ドライブの番号とファイルの場所から「ファイル」アプリで元のファイルを直接開きます。初めてのときは「"ファイル"で開きますか？」と聞かれるので［開く］を押してください。見終わったら左上の「◀ Safari」で地図に戻ります。</p>
     <p class="muted">パソコンでドライブの中身を変えたあと、「ファイル」アプリで違うフォルダの中身が見えたり開けなかったりするときは、［設定］→［一般］→［iPhone ストレージ］→［ファイル］→［App を取り除く］のあと入れ直してください。</p>
@@ -1921,7 +1924,7 @@ grid.addEventListener("touchend", () => { p0 = null; });
 // iPhone は外付けドライブを .../LiveFiles/com.apple.filesystems.userfsd/<ドライブの番号>/ に置く
 const LIVEFILES = "/private/var/mobile/Library/LiveFiles/com.apple.filesystems.userfsd/";
 const DEFAULT_VU = "26682E92-0F31-3F81-B34A-2ECA8E7D5976";   // T7(番号の入っていない古い .pmap 用)
-let tapMode = store.get("tapMode2", "preview");   // 初めは「この画面でプレビューを見る」
+let tapMode = store.get("tapMode3", "preview");   // 初めは「プレビュー画面を表示する」
 const drivePath = it => [ds.rootpath, ...(it.f && it.f !== "." ? it.f.split("/") : []), it.n].filter(Boolean).join("/");
 const driveId = () => (ds && ds.vu) || DEFAULT_VU;
 const filesURL = rel => "shareddocuments://" + (LIVEFILES + driveId() + "/" + (rel || "")).split("/").map(encodeURIComponent).join("/");
@@ -2076,15 +2079,13 @@ function restoreView_() {
     setTimeout(endReturning, 350);
     return true;
   }
-  autoPlay = false;            // 戻ったときは、動画を勝手に再生しない
   openViewer(arr, Math.max(0, arr.indexOf(target)));
-  setTimeout(() => { autoPlay = true; }, 500);
   setTimeout(endReturning, 120);   // プレビューが出てから黒い画面を外す
   return true;
 }
 function setTapMode(m) {
-  tapMode = m; store.set("tapMode2", m);
-  $("tm-original").checked = m === "original"; $("tm-preview").checked = m === "preview";
+  tapMode = m === "direct" ? "direct" : "preview"; store.set("tapMode3", tapMode);
+  $("tm-direct").checked = tapMode === "direct"; $("tm-preview").checked = tapMode === "preview";
 }
 setTapMode(tapMode);
 document.querySelectorAll('input[name="tapmode"]').forEach(r => r.addEventListener("change", () => setTapMode(r.value)));
@@ -2093,14 +2094,19 @@ $("setbtn").onclick = () => { showSavedInfo(); renderLocs(); $("settest").href =
 $("setclose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").hidden = true; });
 function tapItem(arr, k) {
+  if (tapMode !== "direct") { openViewer(arr, k); return; }    // 標準: まずプレビュー画面(動画は止まった状態)
+  // プレビュー画面を出さない: プレビューの画像をタップしたときと同じ動き
   const it = arr[k];
-  if (it && it.k === "動画") {
-    // 動画: 圧縮した動画(.pvid)を読み込んでいれば、この画面ですぐ再生する(元の動画は［元のファイルを開く］で開く)。
-    // 読み込んでいなければ、元の動画を開く
-    if (vget(it)) { openViewer(arr, k); return; }
-    if (!ds.sample) { openOriginal(it); return; }
+  if (it.k === "動画") {
+    if (vget(it)) { autoPlay = true; openViewer(arr, k); return; }   // iPhone 用の動画: すぐ再生
+    vlist = arr; vi = k; openOriginal(it); return;                     // ない: 元のファイルを開く
   }
-  if (tapMode === "original") openOriginal(it); else openViewer(arr, k);
+  openFullscreen(arr, k);                                                // 写真: すぐ全画面
+}
+function openFullscreen(arr, k) {
+  vlist = arr; vi = k;
+  fsReset(false); $("fs").hidden = false;
+  showV();                      // 全画面に画像を出す(前後にめくれる)
 }
 
 // ---------- 1 枚の表示 ----------
@@ -2123,7 +2129,9 @@ async function showV() {
     const v = $("vvid");
     vidURL = URL.createObjectURL(ve.file.slice(ve.base + ve.o, ve.base + ve.o + ve.l, "video/mp4"));
     v.src = vidURL; $("vvwrap").hidden = false; VZ.reset(false);
-    if (autoPlay) v.play().catch(() => {});
+    $("vvbig").hidden = autoPlay;
+    if (autoPlay) v.play().catch(() => { $("vvbig").hidden = false; });
+    autoPlay = false;           // すぐ再生するのは、そのとき 1 回だけ(前後にめくったときは止めた状態)
   }
   const u = await imgURL(it);
   if (vlist[vi] === it && u) { if (ve) $("vvid").poster = u; else img.src = u; }
@@ -2133,7 +2141,7 @@ async function showV() {
     $("fsplay").hidden = it.k !== "動画";
   }
 }
-let vidURL = null, autoPlay = true, wantPlay = "";
+let vidURL = null, autoPlay = false, wantPlay = "";
 // 動画の拡大・縮小(ピンチ)、拡大中のドラッグでの移動、ダブルタップで拡大/元に戻す、1 回タップで再生/一時停止。
 // 拡大すると標準の再生バーまで拡大されてしまうので、再生バーは自前のもの(拡大しない)を使う。
 // box: 動画を入れる枠(はみ出しは隠す) / vid: video / ctl: 再生バーを作る場所 / o.onSwipe(+1 / -1): 拡大していないときの横スワイプ
@@ -2259,6 +2267,10 @@ function VZoom(box, vid, ctl, o) {
 }
 
 const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click()});
+// 止まっているあいだは真ん中に再生マーク(タップで再生)。再生中は消す
+$("vvbig").onclick = e => { e.stopPropagation(); $("vvid").play().catch(() => {}); };
+["play", "playing"].forEach(t => $("vvid").addEventListener(t, () => { $("vvbig").hidden = true; }));
+["pause", "ended", "emptied"].forEach(t => $("vvid").addEventListener(t, () => { $("vvbig").hidden = !$("vvid").getAttribute("src"); }));
 function stopVid() {
   const v = $("vvid");
   if (!v) return;
@@ -2365,6 +2377,12 @@ const FZ_MAX = 6;
 let fsTapTimer = null, fsLastTap = 0;
 $("fs").addEventListener("click", e => {
   if (fsSwiped) return;                          // めくった・つまんだ・ずらしたときは閉じない
+  const cur = vlist[vi];
+  if (cur && cur.k === "動画" && !zoomed()) {    // 動画: 再生する(iPhone 用の動画があれば) / 元のファイルを開く
+    $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false);
+    if (vget(cur)) { autoPlay = true; openViewer(vlist, vi); } else openOriginal(cur);
+    return;
+  }
   const now = Date.now();
   if (now - fsLastTap < 300) {                   // ダブルタップ
     clearTimeout(fsTapTimer); fsLastTap = 0;
