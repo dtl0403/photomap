@@ -2009,7 +2009,7 @@ const VIEW_KEY = "photomap.returnView";
 function saveView(it) {
   try {
     const keys = vlist.length <= 6000 ? vlist.map(vkey) : null;
-    localStorage.setItem(VIEW_KEY, JSON.stringify({at: Date.now(), root: ds.root, key: vkey(it), keys,
+    localStorage.setItem(VIEW_KEY, JSON.stringify({at: Date.now(), root: ds.root, key: vkey(it), keys, viewer: !$("viewer").hidden,
       gridTop: $("grid") ? $("grid").scrollTop : 0, sheetOpen: !$("sheet").hidden, title: $("stitle").textContent,
       center: map.getCenter(), zoom: map.getZoom()}));
   } catch (e) {}
@@ -2036,6 +2036,10 @@ function restoreView_() {
   if (!arr.length) arr = [target];
   if (v.sheetOpen && viewMode !== "list") openSheet(v.title || "", arr);
   setTimeout(() => { if (v.gridTop && $("grid")) $("grid").scrollTop = v.gridTop; }, 300);
+  if (v.viewer === false) {     // 一覧から直接開いたときは、一覧に戻る(プレビューは出さない)
+    setTimeout(endReturning, 350);
+    return true;
+  }
   autoPlay = false;            // 戻ったときは、動画を勝手に再生しない
   openViewer(arr, Math.max(0, arr.indexOf(target)));
   setTimeout(() => { autoPlay = true; }, 500);
@@ -2052,7 +2056,16 @@ $("settest").href = filesURL("");
 $("setbtn").onclick = () => { showSavedInfo(); renderLocs(); $("settest").href = filesURL(""); $("vuinfo").textContent = driveId() + (ds && ds.vu ? "" : "(T7)"); $("settings").hidden = false; };
 $("setclose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", e => { if (e.target.id === "settings") $("settings").hidden = true; });
-function tapItem(arr, k) { if (tapMode === "original") openOriginal(arr[k]); else openViewer(arr, k); }
+function tapItem(arr, k) {
+  const it = arr[k];
+  if (it && it.k === "動画") {
+    // 動画: 圧縮した動画(.pvid)を読み込んでいれば、この画面ですぐ再生する(元の動画は［元のファイルを開く］で開く)。
+    // 読み込んでいなければ、元の動画を開く
+    if (VIDX.has(vkey(it))) { openViewer(arr, k); return; }
+    if (!ds.sample) { openOriginal(it); return; }
+  }
+  if (tapMode === "original") openOriginal(it); else openViewer(arr, k);
+}
 
 // ---------- 1 枚の表示 ----------
 let vlist = [], vi = 0;
