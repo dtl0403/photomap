@@ -874,8 +874,16 @@ button { cursor: pointer; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
 #vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: pan-y; }
 #vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
-#vvid { width: 100%; height: 100%; object-fit: contain; background: #000; }
-#vvid[hidden] { display: none; }
+#vvwrap { position: absolute; inset: 0; }
+#vvwrap[hidden] { display: none; }
+.vz-box { position: absolute; left: 0; right: 0; top: 0; bottom: 48px; overflow: hidden; touch-action: none; background: #000; }
+.vz-box video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; background: #000; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.vz-ctl { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #111; color: #fff; font: 13px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.vz-ctl button { flex: none; min-width: 40px; height: 36px; border: 0; border-radius: 8px; background: #2a2a2a; color: #fff; font: inherit; font-size: 15px; }
+.vz-ctl .vz-rz { font-size: 13px; padding: 0 10px; }
+.vz-ctl .vz-seek { flex: 1; min-width: 60px; accent-color: #fff; }
+.vz-ctl [hidden] { display: none; }
+
 #vprops { min-width: 44px; justify-content: center; font-size: 20px !important; font-weight: 800; letter-spacing: 1px; }
 #props { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
 #props[hidden] { display: none !important; }
@@ -1025,7 +1033,7 @@ button { cursor: pointer; }
     <button type="button" class="vbtn" id="vprev" aria-label="前へ">‹</button>
     <button type="button" class="vbtn" id="vnext" aria-label="次へ">›</button>
   </div>
-  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><video id="vvid" hidden controls playsinline preload="auto"></video></div>
+  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><div class="vz-ctl" id="vvctl"></div></div></div>
   <div class="vinfo">
     <div class="nm" id="vname"></div>
     <div class="meta" id="vmeta"></div>
@@ -1934,7 +1942,9 @@ const encPath = p => p.split("/").map(encodeURIComponent).join("/");
 // その場所での元のファイルの URL(その場所に入っていないファイルなら null)
 function locURL(it, loc) {
   if (!loc || loc.type === "t7") return filesURL(drivePath(it));
-  if (loc.type === "pc") return `http://${loc.host}/o/${encodeURIComponent(loc.key)}/` + encPath(drivePath(it));   // パソコンから Wi-Fi で受け取る
+  if (loc.type === "pc") return it.k === "動画"     // 動画は、窓口の再生ページ(ピンチで拡大・ドラッグで移動できる)で開く
+    ? `http://${loc.host}/p/${encodeURIComponent(loc.key)}.html#` + encPath(drivePath(it))
+    : `http://${loc.host}/o/${encodeURIComponent(loc.key)}/` + encPath(drivePath(it));   // パソコンから Wi-Fi で受け取る
   let rel = drivePath(it);
   if (loc.sub) {
     if (!rel.startsWith(loc.sub + "/")) return null;
@@ -2112,7 +2122,7 @@ async function showV() {
   if (ve) {        // 圧縮した動画があれば、この場ですぐ再生する(タップの操作の中で再生を始めるので、音も出る)
     const v = $("vvid");
     vidURL = URL.createObjectURL(ve.file.slice(ve.base + ve.o, ve.base + ve.o + ve.l, "video/mp4"));
-    v.src = vidURL; v.hidden = false;
+    v.src = vidURL; $("vvwrap").hidden = false; VZ.reset(false);
     if (autoPlay) v.play().catch(() => {});
   }
   const u = await imgURL(it);
@@ -2124,10 +2134,135 @@ async function showV() {
   }
 }
 let vidURL = null, autoPlay = true, wantPlay = "";
+// 動画の拡大・縮小(ピンチ)、拡大中のドラッグでの移動、ダブルタップで拡大/元に戻す、1 回タップで再生/一時停止。
+// 拡大すると標準の再生バーまで拡大されてしまうので、再生バーは自前のもの(拡大しない)を使う。
+// box: 動画を入れる枠(はみ出しは隠す) / vid: video / ctl: 再生バーを作る場所 / o.onSwipe(+1 / -1): 拡大していないときの横スワイプ
+function VZoom(box, vid, ctl, o) {
+  o = o || {};
+  const z = {s: 1, x: 0, y: 0}, MAX = 6;
+  ctl.innerHTML = '<button type="button" class="vz-pp" aria-label="再生">▶</button><span class="vz-t">0:00</span>' +
+    '<input type="range" class="vz-seek" min="0" max="1000" value="0" step="1" aria-label="再生位置"><span class="vz-d">0:00</span>' +
+    '<button type="button" class="vz-rz" hidden>等倍</button>';
+  const q = c => ctl.querySelector(c), pp = q(".vz-pp"), tt = q(".vz-t"), sk = q(".vz-seek"), dd = q(".vz-d"), rz = q(".vz-rz");
+  const ft = s => { s = Math.max(0, Math.floor(s || 0)); return s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  let seeking = false;
+  const upd = () => {
+    const d = vid.duration;
+    tt.textContent = ft(vid.currentTime); dd.textContent = Number.isFinite(d) ? ft(d) : "0:00";
+    if (!seeking && Number.isFinite(d) && d > 0) sk.value = Math.round(vid.currentTime / d * 1000);
+    pp.textContent = vid.paused ? "▶" : "❚❚"; pp.setAttribute("aria-label", vid.paused ? "再生" : "一時停止");
+  };
+  ["timeupdate", "durationchange", "loadedmetadata", "play", "pause", "ended", "emptied"].forEach(t => vid.addEventListener(t, upd));
+  const toggle = () => { if (vid.paused) vid.play().catch(() => {}); else vid.pause(); };
+  pp.onclick = toggle;
+  sk.addEventListener("input", () => { seeking = true; const d = vid.duration; if (Number.isFinite(d)) { vid.currentTime = sk.value / 1000 * d; tt.textContent = ft(vid.currentTime); } });
+  sk.addEventListener("change", () => { seeking = false; });
+  rz.onclick = () => reset(true);
+  vid.addEventListener("loadedmetadata", () => reset(false));
+
+  // ---- 拡大・移動(写真の全画面表示と同じ考え方)
+  function geo() {
+    const W = box.clientWidth, H = box.clientHeight, nw = vid.videoWidth || W, nh = vid.videoHeight || H;
+    const r = Math.min(W / nw, H / nh), w = nw * r, h = nh * r;
+    return {W, H, w, h, l: (W - w) / 2, t: (H - h) / 2};
+  }
+  function clamp() {
+    const b = geo(), s = z.s;
+    const lim = (v, size, off, view) => { const cs = size * s; return cs <= view ? (view - cs) / 2 - off * s : Math.min(-off * s, Math.max(view - (off + size) * s, v)); };
+    z.x = lim(z.x, b.w, b.l, b.W); z.y = lim(z.y, b.h, b.t, b.H);
+  }
+  let raf = 0;
+  function apply(anim) {
+    vid.style.transition = anim ? "transform .22s ease-out" : "none";
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => { vid.style.transform = `translate3d(${z.x}px,${z.y}px,0) scale(${z.s})`; });
+    rz.hidden = z.s <= 1.01;
+  }
+  function reset(anim) { z.s = 1; z.x = 0; z.y = 0; apply(anim); }
+  function zoomAt(px, py, ns, anim) {
+    const cx = (px - z.x) / z.s, cy = (py - z.y) / z.s;
+    z.s = ns; z.x = px - cx * ns; z.y = py - cy * ns;
+    if (ns <= 1.001) { z.s = 1; z.x = 0; z.y = 0; } else clamp();
+    apply(anim);
+  }
+  const zoomed = () => z.s > 1.01;
+  const pt = t => { const r = box.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  let pinch = null, pan = null, sx = null, sy = null, moved = false, block = false;
+  const blockClick = () => { block = true; setTimeout(() => { block = false; }, 400); };
+  box.addEventListener("touchstart", e => {
+    e.stopPropagation();
+    if (e.touches.length === 2) {
+      const [ax, ay] = pt(e.touches[0]), [bx, by] = pt(e.touches[1]);
+      pinch = {d: dist(e.touches[0], e.touches[1]), s: z.s, x: z.x, y: z.y, mx: (ax + bx) / 2, my: (ay + by) / 2}; pan = null; sx = null; moved = true;
+    } else if (e.touches.length === 1) {
+      moved = false; [sx, sy] = pt(e.touches[0]);
+      if (zoomed()) pan = {x: z.x, y: z.y, sx, sy};
+    }
+  }, {passive: true});
+  box.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (pinch && e.touches.length >= 2) {
+      const [ax, ay] = pt(e.touches[0]), [bx, by] = pt(e.touches[1]), mx = (ax + bx) / 2, my = (ay + by) / 2;
+      const ns = Math.max(0.7, Math.min(MAX * 1.2, pinch.s * dist(e.touches[0], e.touches[1]) / pinch.d));
+      const cx = (pinch.mx - pinch.x) / pinch.s, cy = (pinch.my - pinch.y) / pinch.s;
+      z.s = ns; z.x = mx - cx * ns; z.y = my - cy * ns; apply(false);
+    } else if (pan && e.touches.length === 1) {
+      const [x, y] = pt(e.touches[0]);
+      if (Math.abs(x - pan.sx) + Math.abs(y - pan.sy) > 6) moved = true;
+      z.x = pan.x + x - pan.sx; z.y = pan.y + y - pan.sy; clamp(); apply(false);
+    } else if (sx !== null && e.touches.length === 1) {
+      const [x, y] = pt(e.touches[0]);
+      if (Math.abs(x - sx) + Math.abs(y - sy) > 10) moved = true;
+    }
+  }, {passive: false});
+  box.addEventListener("touchend", e => {
+    e.stopPropagation();
+    if (pinch) {
+      if (e.touches.length < 2) {
+        pinch = null;
+        if (z.s < 1.05) reset(true);
+        else if (z.s > MAX) { const b = geo(); zoomAt(b.W / 2, b.H / 2, MAX, true); }
+        else { clamp(); apply(true); }
+        if (e.touches.length === 1 && zoomed()) { const [x, y] = pt(e.touches[0]); pan = {x: z.x, y: z.y, sx: x, sy: y}; }
+      }
+      blockClick(); return;
+    }
+    if (pan) { pan = null; if (moved) blockClick(); return; }
+    if (sx === null) return;
+    const [x, y] = pt(e.changedTouches[0]), dx = x - sx, dy = y - sy; sx = null;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) blockClick();
+    if (o.onSwipe && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) o.onSwipe(dx > 0 ? -1 : 1);
+  });
+  ["gesturestart", "gesturechange", "gestureend"].forEach(t => box.addEventListener(t, e => e.preventDefault()));
+  // 1 回タップ: 再生/一時停止、ダブルタップ: 拡大/元に戻す
+  let last = 0, timer = null;
+  box.addEventListener("click", e => {
+    e.stopPropagation();
+    if (block) return;
+    const now = Date.now(), r = box.getBoundingClientRect();
+    if (now - last < 300) {
+      clearTimeout(timer); last = 0;
+      if (zoomed()) reset(true); else zoomAt(e.clientX - r.left, e.clientY - r.top, 2.5, true);
+      return;
+    }
+    last = now; clearTimeout(timer); timer = setTimeout(toggle, 280);
+  });
+  box.addEventListener("wheel", e => {      // パソコンで試すとき用(Ctrl+ホイール / トラックパッドのピンチ)
+    if (!e.ctrlKey) return;
+    e.preventDefault(); const r = box.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, Math.max(1, Math.min(MAX, z.s * Math.exp(-e.deltaY / 200))), false);
+  }, {passive: false});
+  window.addEventListener("resize", () => { if (zoomed()) { clamp(); apply(false); } });
+  upd();
+  return {reset, zoomAt, state: z};
+}
+
+const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click()});
 function stopVid() {
   const v = $("vvid");
   if (!v) return;
-  v.pause(); v.removeAttribute("src"); v.removeAttribute("poster"); v.load(); v.hidden = true;
+  v.pause(); v.removeAttribute("src"); v.removeAttribute("poster"); v.load(); $("vvwrap").hidden = true; VZ.reset(false);
   if (vidURL) { URL.revokeObjectURL(vidURL); vidURL = null; }
 }
 function openViewer(arr, k) { vlist = arr; vi = k; $("viewer").hidden = false; showV(); $("vclose").focus(); }
@@ -2301,7 +2436,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").h
 $("vimgbox").addEventListener("touchstart", e => {
   if (e.touches.length !== 1) return;
   // 動画の再生バー(下のほう)を指で動かしているときは、前後の写真に移らない
-  if (e.target.id === "vvid" && e.touches[0].clientY > e.target.getBoundingClientRect().bottom - 90) { sx = null; return; }
+  if (e.target.closest && e.target.closest("#vvctl")) { sx = null; return; }
   sx = e.touches[0].clientX;
 }, {passive: true});
 $("vimgbox").addEventListener("touchend", e => {
