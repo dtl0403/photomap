@@ -1735,7 +1735,7 @@ async function openPack(file, label, remember, vfiles = []) {
     useDataset(d);
     const nv = vfiles.length ? await attachVideos(vfiles) : (updateVidInfo(), 0);
     if (nv && !$("sheet").hidden) renderList(true);     // 動画の長さ(.pvid の記録)を一覧に出す
-    if (!returning()) toast(`${ds.items.length.toLocaleString()} 件を読み込みました` + (nv ? `(動画 ${nv.toLocaleString()} 本を再生できます)` : ""));
+    // 「〜件を読み込みました」は出さない(件数は画面の下に出ている)
     $("loading").hidden = true;
     restoreView();
     if (remember) maybeRemember(file, d, vfiles);
