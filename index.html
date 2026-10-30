@@ -848,6 +848,7 @@ button { cursor: pointer; }
 #sheet[hidden] { display: none !important; }
 #grip { flex: none; height: 26px; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: ns-resize; }
 #grip::before { content: ""; width: 44px; height: 5px; border-radius: 3px; background: var(--border); }
+#kindf.on { background: var(--accent, #1f4e78); color: #fff; border-color: transparent; }
 #shead { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 max(12px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); flex-wrap: wrap; }
 #stitle { flex: 1 1 140px; min-width: 0; font-weight: 800; font-size: 15px; }
 .ibtn { min-width: 40px; min-height: 36px; border: 1px solid var(--line); background: var(--chip); border-radius: 9px; font-size: 14px; padding: 0 9px; }
@@ -1023,6 +1024,7 @@ button { cursor: pointer; }
         <span id="stitle"></span>
         <button type="button" class="ibtn" id="zout" aria-label="写真を小さく">－</button>
         <button type="button" class="ibtn" id="zin" aria-label="写真を大きく">＋</button>
+        <button type="button" class="ibtn" id="kindf" aria-label="表示する種類(全部・写真のみ・動画のみ)">全部</button>
         <button type="button" class="ibtn" id="sort">古い順</button>
         <button type="button" class="ibtn" id="sclose" aria-label="一覧を閉じる">✕</button>
       </div>
@@ -1425,6 +1427,11 @@ setDetail(detail && navigator.onLine !== false, false);
 
 // ---------- 絞り込み ----------
 let shown = [], shownGeo = [], MONTHS = [];
+// 表示する種類: すべて / 写真のみ / 動画のみ(地図と一覧の両方に効く。覚えておく)
+const KIND_LABEL = {all: "すべて", photo: "写真のみ", video: "動画のみ"};
+let kindF = store.get("kindF", "all");
+if (!KIND_LABEL[kindF]) kindF = "all";
+const kindOK = it => kindF === "all" || (kindF === "video") === (it.k === "動画");
 const mLabel = ym => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
 function buildMonths(items) {
   const out = [...new Set(items.map(it => it.d.slice(0, 7)).filter(Boolean))].sort();   // 写真のある月だけ
@@ -1550,7 +1557,7 @@ function apply(fit) {
   const from = $("pfrom").value, to = $("pto").value;
   const whole = !MONTHS.length || (from === MONTHS[0] && to === MONTHS[MONTHS.length - 1]);
   const inPeriod = it => whole || (it.d && it.d.slice(0, 7) >= from && it.d.slice(0, 7) <= to);
-  shown = ds.items.filter(it => inPeriod(it) && words.every(w => it.s.includes(w)));
+  shown = ds.items.filter(it => inPeriod(it) && kindOK(it) && words.every(w => it.s.includes(w)));
   shownGeo = shown.filter(it => it.g);
   if (MONTHS.length) {
     const i = MONTHS.indexOf(from), j = MONTHS.indexOf(to);
@@ -1562,7 +1569,8 @@ function apply(fit) {
   const fl = ym => `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月`;
   const fullYear = MONTHS.length && from.slice(0, 4) === to.slice(0, 4) && MONTHS.filter(ym => ym.slice(0, 4) === from.slice(0, 4)).every(ym => ym >= from && ym <= to);
   $("psum").innerHTML = (MONTHS.length ? (whole ? "期間: <b>全期間</b>" : fullYear ? `期間: <b>${+from.slice(0, 4)}年(1月〜12月)</b>` : `期間: <b>${fl(from)}${from === to ? "" : "〜" + fl(to)}</b>`) : "") +
-    (words.length ? ` ・ 検索: <b>${esc($("q").value.trim())}</b>` : "");
+    (words.length ? ` ・ 検索: <b>${esc($("q").value.trim())}</b>` : "") +
+    (kindF !== "all" ? ` ・ <b>${KIND_LABEL[kindF]}</b>` : "");
   rebuildIndex();
   const noGeo = shown.length - shownGeo.length;
   $("count").textContent = `地図 ${shownGeo.length.toLocaleString()} 件` + (noGeo ? ` ・位置情報なし ${noGeo.toLocaleString()} 件` : "") +
@@ -1824,8 +1832,10 @@ const io = new IntersectionObserver(es => es.forEach(e => {
 }), {root: grid, rootMargin: "400px"});
 
 const ymLabel = ym => ym ? `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月` : "撮影日不明";
+let sheetBase = [];
 function openSheet(title, arr) {
-  list = arr.slice();
+  sheetBase = arr.slice();
+  list = arr.filter(kindOK);
   $("stitle").textContent = title;
   const places = {};
   arr.forEach(it => { const k = it.g === false ? "位置情報なし" : (it.a || "住所不明"); places[k] = (places[k] || 0) + 1; });
@@ -1874,6 +1884,15 @@ function setViewMode(m) {
 }
 $("vm-map").onclick = () => setViewMode("map");
 $("vm-list").onclick = () => setViewMode("list");
+function showKind() { $("kindf").textContent = {all: "全部", photo: "写真", video: "動画"}[kindF]; $("kindf").classList.toggle("on", kindF !== "all"); }
+showKind();
+$("kindf").onclick = () => {
+  kindF = {all: "photo", photo: "video", video: "all"}[kindF]; store.set("kindF", kindF); showKind();
+  const sheetWasOpen = !$("sheet").hidden && viewMode !== "list";
+  apply(false);                                   // 地図(と一覧モードの一覧)を絞り直す
+  if (sheetWasOpen) { list = sheetBase.filter(kindOK); renderList(true); }   // 地図で開いている「この辺り」の一覧も
+  toast(kindF === "all" ? "写真と動画をすべて表示します" : `${KIND_LABEL[kindF]}を表示します`);
+};
 $("sort").onclick = () => { newest = !newest; store.set("newest", newest); $("sort").textContent = newest ? "新しい順" : "古い順"; renderList(true); };
 
 // 写真の大きさ(ピンチ・Ctrl+ホイール・＋－)
