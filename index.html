@@ -2500,11 +2500,11 @@ function pzApply(anim, extra) {
   im.style.transition = anim ? "transform .2s ease-out" : "none";
   im.style.transform = extra || `translate3d(${pz.x}px,${pz.y}px,0) scale(${pz.s})`;
 }
-function pzReset(anim) { pz.s = 1; pz.x = 0; pz.y = 0; pzApply(anim); $("viewer").style.backgroundColor = ""; }
+function pzReset(anim) { pz.s = 1; pz.x = 0; pz.y = 0; pzLastTap = 0; pzApply(anim); $("viewer").style.backgroundColor = ""; }
 const pzZoomed = () => pz.s > 1.01;
 const pzCan = () => { const it = vlist[vi]; return it && it.k !== "動画" && !$("vimg").hidden && !!$("vimg").getAttribute("src"); };
 const ppt = t => { const r = $("vimgbox").getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
-let sy0 = null, pull = false, pinchP = null, panP = null;
+let sy0 = null, pull = false, pinchP = null, panP = null, pzLastTap = 0;
 $("vimgbox").addEventListener("touchstart", e => {
   // 動画(再生バーを含む)は動画のほうで扱う
   if (e.target.closest && e.target.closest("#vvwrap")) { sx = null; return; }
@@ -2558,7 +2558,9 @@ $("vimgbox").addEventListener("touchend", e => {
   if (panP) {
     const moved = panP.moved; panP = null; sx = null;
     swiped = true; setTimeout(() => { swiped = false; }, 400);   // 拡大中のタップでは全画面にしない
-    if (moved) return;
+    if (moved) { pzLastTap = 0; return; }
+    const now = Date.now();                        // 拡大中のダブルタップ: 元の大きさ(写真全体が見える表示)に戻す
+    if (now - pzLastTap < 320) { pzLastTap = 0; pzReset(true); } else pzLastTap = now;
     return;
   }
   if (sx === null) return;
