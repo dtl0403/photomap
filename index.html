@@ -875,6 +875,9 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #viewer { position: fixed; inset: 0; z-index: 2000; background: #000; color: #fff; display: flex; flex-direction: column;
           padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 #viewer[hidden] { display: none !important; }
+/* 動画を拡大しているとき: 全画面(上の帳とファイル名などを隠す。再生バーは残す) */
+#viewer.vfull .vbar, #viewer.vfull .vinfo { display: none !important; }
+#viewer.vfull #vimgbox { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .vbar { flex: none; display: flex; align-items: center; gap: 8px; padding-block: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
 .vbar .ttl { flex: 1; min-width: 0; font-size: 13px; color: #c9d3dc; text-align: center; font-variant-numeric: tabular-nums; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
@@ -2144,6 +2147,7 @@ function openFullscreen(arr, k) {
 let vlist = [], vi = 0;
 async function showV() {
   const it = vlist[vi];
+  if (typeof setVfull === "function") setVfull(false);     // 前後に移ったら、動画の全画面はやめる
   $("vpos").textContent = vlist.length > 1 ? `${vi + 1} / ${vlist.length}` : "";
   $("vprev").disabled = vi === 0; $("vnext").disabled = vi === vlist.length - 1;
   $("vname").textContent = it.n;
@@ -2235,6 +2239,7 @@ function VZoom(box, vid, ctl, o) {
   box.addEventListener("touchstart", e => {
     e.stopPropagation();
     if (e.touches.length === 2) {
+      if (!zoomed() && o.onBeforeZoom) o.onBeforeZoom();     // 拡大を始める前に(全画面にするなど)。枠の大きさが変わるので、このあとで位置を測る
       const [ax, ay] = pt(e.touches[0]), [bx, by] = pt(e.touches[1]);
       pinch = {d: dist(e.touches[0], e.touches[1]), s: z.s, x: z.x, y: z.y, mx: (ax + bx) / 2, my: (ay + by) / 2}; pan = null; sx = null; moved = true;
     } else if (e.touches.length === 1) {
@@ -2263,7 +2268,7 @@ function VZoom(box, vid, ctl, o) {
     if (pinch) {
       if (e.touches.length < 2) {
         pinch = null;
-        if (z.s < 1.05) reset(true);
+        if (z.s < 1.05) { reset(true); if (o.onZoomEnd) o.onZoomEnd(false); }
         else if (z.s > MAX) { const b = geo(); zoomAt(b.W / 2, b.H / 2, MAX, true); }
         else { clamp(); apply(true); }
         if (e.touches.length === 1 && zoomed()) { const [x, y] = pt(e.touches[0]); pan = {x: z.x, y: z.y, sx: x, sy: y}; }
@@ -2286,7 +2291,13 @@ function VZoom(box, vid, ctl, o) {
     const now = Date.now(), r = box.getBoundingClientRect();
     if (now - last < 300) {
       last = 0;
-      if (zoomed()) reset(true); else zoomAt(e.clientX - r.left, e.clientY - r.top, 2.5, true);
+      if (zoomed()) reset(true);
+      else {
+        const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+        if (o.onBeforeZoom) o.onBeforeZoom();
+        const r2 = box.getBoundingClientRect();
+        zoomAt(fx * r2.width, fy * r2.height, 2.5, true);
+      }
       return;
     }
     last = now;
@@ -2302,7 +2313,15 @@ function VZoom(box, vid, ctl, o) {
   return {reset, zoomAt, state: z};
 }
 
-const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click(), onSwipeDown: () => $("vclose").click()});
+// 動画の拡大は全画面で(写真と同じ)。全画面で拡大していないときの上下スワイプはプレビューに戻る
+let vfullByPinch = false;
+const setVfull = on => $("viewer").classList.toggle("vfull", on);
+const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {
+  onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click(),
+  onSwipeDown: () => { if ($("viewer").classList.contains("vfull")) setVfull(false); else $("vclose").click(); },
+  onBeforeZoom: () => { if (!$("viewer").classList.contains("vfull")) { vfullByPinch = true; setVfull(true); } },
+  onZoomEnd: zoomedNow => { if (!zoomedNow && vfullByPinch) setVfull(false); vfullByPinch = false; },   // ピンチで拡大しなかった(縮めた)ときはプレビューに戻る
+});
 // 止まっているあいだは真ん中に再生マーク(タップで再生)。再生中は消す
 $("vvbig").onclick = e => { e.stopPropagation(); $("vvid").play().catch(() => {}); };
 ["play", "playing"].forEach(t => $("vvid").addEventListener(t, () => { $("vvbig").hidden = true; }));
@@ -2314,7 +2333,7 @@ function stopVid() {
   if (vidURL) { URL.revokeObjectURL(vidURL); vidURL = null; }
 }
 function openViewer(arr, k) { vlist = arr; vi = k; $("viewer").hidden = false; showV(); $("vclose").focus(); }
-$("vclose").onclick = () => { stopVid(); $("props").hidden = true; $("viewer").hidden = true; };
+$("vclose").onclick = () => { stopVid(); setVfull(false); $("props").hidden = true; $("viewer").hidden = true; };
 $("vprev").onclick = () => { if (vi > 0) { vi--; showV(); } };
 $("vnext").onclick = () => { if (vi < vlist.length - 1) { vi++; showV(); } };
 // ---- 「…」: 開くのに直接関係のない情報(保存場所・圧縮した動画の入ったファイルなど)
