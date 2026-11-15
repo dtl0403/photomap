@@ -876,7 +876,7 @@ button { cursor: pointer; }
 .vbar { flex: none; display: flex; align-items: center; gap: 8px; padding-block: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
 .vbar .ttl { flex: 1; min-width: 0; font-size: 13px; color: #c9d3dc; text-align: center; font-variant-numeric: tabular-nums; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
-#vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: pan-y; }
+#vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: none; }
 #vimg { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
 #vvwrap { position: absolute; inset: 0; }
 #vvwrap[hidden] { display: none; }
@@ -2269,6 +2269,7 @@ function VZoom(box, vid, ctl, o) {
     const [x, y] = pt(e.changedTouches[0]), dx = x - sx, dy = y - sy; sx = null;
     if (Math.abs(dx) > 10 || Math.abs(dy) > 10) blockClick();
     if (o.onSwipe && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) o.onSwipe(dx > 0 ? -1 : 1);
+    else if (o.onSwipeDown && dy > 80 && dy > Math.abs(dx) * 1.2) o.onSwipeDown();     // 下にスワイプ(閉じるなど)
   });
   ["gesturestart", "gesturechange", "gestureend"].forEach(t => box.addEventListener(t, e => e.preventDefault()));
   // タップ: 止まっていればすぐ再生(待たない。一時停止は再生バーのボタンで)、ダブルタップ: 拡大/元に戻す
@@ -2295,7 +2296,7 @@ function VZoom(box, vid, ctl, o) {
   return {reset, zoomAt, state: z};
 }
 
-const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click()});
+const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click(), onSwipeDown: () => $("vclose").click()});
 // 止まっているあいだは真ん中に再生マーク(タップで再生)。再生中は消す
 $("vvbig").onclick = e => { e.stopPropagation(); $("vvid").play().catch(() => {}); };
 ["play", "playing"].forEach(t => $("vvid").addEventListener(t, () => { $("vvbig").hidden = true; }));
@@ -2480,18 +2481,42 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") { e.stopImmediatePropagation(); $("vnext").click(); }
 }, true);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("fs").hidden) { e.stopImmediatePropagation(); $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false); } }, true);
+// 横にスワイプ: 前後へ / 下にスワイプ: 一覧に戻る(指に合わせて写真が下がり、離すと閉じる)
+let sy0 = null, pullDown = false;
 $("vimgbox").addEventListener("touchstart", e => {
-  if (e.touches.length !== 1) return;
+  if (e.touches.length !== 1) { sx = null; return; }
   // 動画の再生バー(下のほう)を指で動かしているときは、前後の写真に移らない
   if (e.target.closest && e.target.closest("#vvctl")) { sx = null; return; }
-  sx = e.touches[0].clientX;
+  sx = e.touches[0].clientX; sy0 = e.touches[0].clientY; pullDown = false;
 }, {passive: true});
+$("vimgbox").addEventListener("touchmove", e => {
+  if (sx === null || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy0;
+  if (!pullDown && dy > 12 && dy > Math.abs(dx) * 1.2) pullDown = true;
+  if (pullDown) {
+    e.preventDefault();
+    const d = Math.max(0, dy);
+    $("vimg").style.transition = "none";
+    $("vimg").style.transform = `translateY(${d}px) scale(${Math.max(0.8, 1 - d / 1500)})`;
+    $("viewer").style.backgroundColor = `rgba(0,0,0,${Math.max(0.35, 1 - d / 500)})`;
+  }
+}, {passive: false});
+function resetPull(anim) {
+  $("vimg").style.transition = anim ? "transform .18s ease-out" : "none";
+  $("vimg").style.transform = ""; $("viewer").style.backgroundColor = "";
+}
 $("vimgbox").addEventListener("touchend", e => {
   if (sx === null) return;
-  const dx = e.changedTouches[0].clientX - sx; sx = null;
-  swiped = Math.abs(dx) > 10; setTimeout(() => { swiped = false; }, 400);   // 横にめくったときは全画面にしない
+  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy0; sx = null;
+  swiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; setTimeout(() => { swiped = false; }, 400);   // スワイプしたときは全画面にしない
+  if (pullDown) {
+    pullDown = false;
+    if (dy > 80) { resetPull(false); $("vclose").click(); } else resetPull(true);
+    return;
+  }
   if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click();
 });
+$("vimgbox").addEventListener("touchcancel", () => { sx = null; if (pullDown) { pullDown = false; resetPull(true); } });
 
 useDataset(makeSample());
 setViewMode(viewMode);
