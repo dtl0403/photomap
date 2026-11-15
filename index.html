@@ -891,6 +891,8 @@ button { cursor: pointer; }
 .vz-ctl .vz-seek { flex: 1; min-width: 60px; accent-color: #fff; }
 .vz-ctl [hidden] { display: none; }
 
+#vrot { min-width: 44px; justify-content: center; padding: 0 10px !important; }
+#vrot[hidden] { display: none !important; }
 #vprops { min-width: 44px; justify-content: center; font-size: 20px !important; font-weight: 800; letter-spacing: 1px; }
 #props { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
 #props[hidden] { display: none !important; }
@@ -1049,7 +1051,7 @@ button { cursor: pointer; }
       <a id="vopen" class="open" target="_blank" rel="noopener">元のファイルを開く</a>
       <a id="vapple" target="_blank" rel="noopener">Apple マップ</a>
       <a id="vgoogle" target="_blank" rel="noopener">Google マップ</a>
-      <button type="button" id="vcopy">ファイル名をコピー</button>
+      <button type="button" id="vrot" aria-label="時計回りに90度回す" title="時計回りに90度回す"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9" width="10.5" height="11.5" rx="1.6"/><path d="M10.5 3.6a8.6 8.6 0 0 1 9.4 8.2"/><path d="M22.2 9.4l-2.3 2.6-2.6-2.3"/></svg></button>
       <button type="button" id="vprops" aria-label="詳しい情報" title="詳しい情報">…</button>
     </div>
   </div>
@@ -2162,10 +2164,12 @@ async function showV() {
     autoPlay = false;           // すぐ再生するのは、そのとき 1 回だけ(前後にめくったときは止めた状態)
   }
   const u = await imgURL(it);
-  if (vlist[vi] === it && u) { if (ve) $("vvid").poster = u; else img.src = u; }
+  $("vrot").hidden = it.k === "動画"; rotSrc = "";
+  if (vlist[vi] === it && u) { if (ve) $("vvid").poster = u; else if (it.k === "動画") img.src = u; else await showRotated(it, u); }
   if (vlist[vi] === it && !$("fs").hidden) {     // 全画面のままで前後に移ったとき
     fsReset(false);
-    if (u) $("fsimg").src = u; else $("fsimg").removeAttribute("src");
+    const fu = it.k !== "動画" && $("vimg").getAttribute("src") ? $("vimg").src : u;   // 回した写真は回した向きで
+    if (fu) $("fsimg").src = fu; else $("fsimg").removeAttribute("src");
     $("fsplay").hidden = it.k !== "動画";
   }
 }
@@ -2344,11 +2348,42 @@ $("vopen").addEventListener("click", e => {
   saveView(vlist[vi]);
   toast(`「${vlist[vi].n}」を開いています…`);
 });
-$("vcopy").onclick = () => {
-  const name = vlist[vi].n;
-  (navigator.clipboard ? navigator.clipboard.writeText(name) : Promise.reject()).then(
-    () => toast("ファイル名をコピーしました"),
-    () => { const r = document.createRange(); r.selectNodeContents($("vname")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("ファイル名を選択しました。コピーしてください"); });
+// ---- 写真を時計回りに 90 度ずつ回す(回した向きは写真ごとに覚えておく。元のファイルは変更しない)
+let ROTS = store.get("rots", {});            // "フォルダ/ファイル名" → 90 / 180 / 270
+let rotSrc = "", rotURL = null, rotSeq = 0;
+function rotatedURL(src, deg) {                // 縮小画像を回した画像を作る(拡大・全画面もそのまま使える)
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement("canvas"), odd = deg % 180 !== 0;
+      c.width = odd ? im.naturalHeight : im.naturalWidth; c.height = odd ? im.naturalWidth : im.naturalHeight;
+      const g = c.getContext("2d");
+      g.translate(c.width / 2, c.height / 2); g.rotate(deg * Math.PI / 180); g.drawImage(im, -im.naturalWidth / 2, -im.naturalHeight / 2);
+      c.toBlob(b => b ? res(URL.createObjectURL(b)) : rej(new Error("回せませんでした")), "image/jpeg", 0.92);
+    };
+    im.onerror = rej; im.src = src;
+  });
+}
+async function showRotated(it, src) {        // プレビューの画像を、覚えている向きで出す
+  rotSrc = src;
+  const deg = ROTS[vkey(it)] || 0, seq = ++rotSeq;
+  if (rotURL) { URL.revokeObjectURL(rotURL); rotURL = null; }
+  if (!deg) { $("vimg").src = src; return; }
+  try {
+    const u = await rotatedURL(src, deg);
+    if (seq !== rotSeq) { URL.revokeObjectURL(u); return; }
+    rotURL = u; $("vimg").src = u;
+  } catch (e) { $("vimg").src = src; }
+}
+$("vrot").onclick = async () => {
+  const it = vlist[vi];
+  if (!it || it.k === "動画" || !rotSrc) return;
+  const k = vkey(it), deg = ((ROTS[k] || 0) + 90) % 360;
+  if (deg) ROTS[k] = deg; else delete ROTS[k];
+  const keys = Object.keys(ROTS); if (keys.length > 5000) delete ROTS[keys[0]];   // 覚えすぎないように
+  store.set("rots", ROTS);
+  pzReset(false);
+  await showRotated(it, rotSrc);
 };
 document.addEventListener("keydown", e => {
   if ($("viewer").hidden) return;
