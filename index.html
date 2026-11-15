@@ -773,6 +773,8 @@ html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font); overflow: hidden; -webkit-text-size-adjust: 100%; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
+/* ボタンを続けて押したときに、iPhone の「ダブルタップで画面を拡大」が働かないように */
+html, button, a, input, select, label { touch-action: manipulation; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 #app { height: 100%; display: flex; flex-direction: column; }
 
@@ -2469,7 +2471,7 @@ $("fs").addEventListener("touchstart", e => {
     const [mx, my] = tmid(e.touches[0], e.touches[1]);
     pinch = {d: tdist(e.touches[0], e.touches[1]), s: fz.s, x: fz.x, y: fz.y, mx, my}; pan = null; fsx = null; fsMoved = true;
   } else if (e.touches.length === 1) {
-    fsMoved = false;
+    fsMoved = false; fsPull = false;
     fsx = e.touches[0].clientX; fsy = e.touches[0].clientY;
     if (zoomed()) pan = {x: fz.x, y: fz.y, sx: fsx, sy: fsy};
   }
@@ -2486,8 +2488,19 @@ $("fs").addEventListener("touchmove", e => {
     const t = e.touches[0];
     if (Math.abs(t.clientX - pan.sx) + Math.abs(t.clientY - pan.sy) > 6) fsMoved = true;
     fz.x = pan.x + t.clientX - pan.sx; fz.y = pan.y + t.clientY - pan.sy; fsClamp(); fsApply(false);
+  } else if (fsx !== null && !zoomed() && e.touches.length === 1) {     // 拡大していないとき: 上下に引くと写真が付いてくる
+    const dx = e.touches[0].clientX - fsx, dy = e.touches[0].clientY - fsy;
+    if (!fsPull && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) fsPull = true;
+    if (fsPull) {
+      const im = $("fsimg"); im.classList.remove("anim");
+      im.style.transform = `translate3d(0,${dy}px,0) scale(${Math.max(0.8, 1 - Math.abs(dy) / 1500)})`;
+      $("fs").style.backgroundColor = `rgba(0,0,0,${Math.max(0.35, 1 - Math.abs(dy) / 500)})`;
+    }
   }
 }, {passive: false});
+let fsPull = false;
+$("fs").addEventListener("touchcancel", () => { fsx = null; pinch = null; pan = null; if (fsPull) { fsPull = false; $("fs").style.backgroundColor = ""; fsApply(true); } });
+function closeFs() { $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
 ["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));   // Safari の画面拡大を止める
 $("fs").addEventListener("touchend", e => {
   if (pinch) {
@@ -2508,6 +2521,11 @@ $("fs").addEventListener("touchend", e => {
   if (fsx === null) return;
   const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
   fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
+  if (fsPull) {                                  // 上下のスワイプ: 前の画面(プレビュー)に戻る
+    fsPull = false;
+    if (Math.abs(dy) > 80) closeFs(); else { $("fs").style.backgroundColor = ""; fsApply(true); }
+    return;
+  }
   if (Math.abs(dx) > Math.abs(dy)) { if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click(); }
 });
 document.addEventListener("keydown", e => {
@@ -2543,10 +2561,11 @@ let sy0 = null, pull = false, pinchP = null, panP = null, pzLastTap = 0;
 $("vimgbox").addEventListener("touchstart", e => {
   // 動画(再生バーを含む)は動画のほうで扱う
   if (e.target.closest && e.target.closest("#vvwrap")) { sx = null; return; }
-  if (e.touches.length === 2 && pzCan()) {
-    const [ax, ay] = ppt(e.touches[0]), [bx, by] = ppt(e.touches[1]);
-    pinchP = {d: Math.hypot(ax - bx, ay - by), s: pz.s, x: pz.x, y: pz.y, mx: (ax + bx) / 2, my: (ay + by) / 2};
-    panP = null; sx = null; pull = false; $("viewer").style.backgroundColor = "";
+  if (e.touches.length === 2 && pzCan()) {      // ピンチ: 全画面にして、そのまま全画面で拡大する
+    panP = null; sx = null; pull = false; pzReset(false);
+    $("fsimg").src = $("vimg").src; $("fsplay").hidden = true; fsReset(false); $("fs").hidden = false;
+    const [mx, my] = tmid(e.touches[0], e.touches[1]);
+    pinchP = {d: tdist(e.touches[0], e.touches[1]), s: 1, x: 0, y: 0, mx, my};
     return;
   }
   if (e.touches.length !== 1) { sx = null; return; }
@@ -2554,12 +2573,12 @@ $("vimgbox").addEventListener("touchstart", e => {
   if (pzZoomed()) { const [x, y] = ppt(e.touches[0]); panP = {x: pz.x, y: pz.y, sx: x, sy: y, moved: false}; }
 }, {passive: true});
 $("vimgbox").addEventListener("touchmove", e => {
-  if (pinchP && e.touches.length >= 2) {
+  if (pinchP && e.touches.length >= 2) {        // 全画面の写真を拡大する(指はプレビューに触れたままなので、ここで動かす)
     e.preventDefault();
-    const [ax, ay] = ppt(e.touches[0]), [bx, by] = ppt(e.touches[1]), mx = (ax + bx) / 2, my = (ay + by) / 2;
-    const ns = Math.max(0.7, Math.min(PZ_MAX * 1.2, pinchP.s * Math.hypot(ax - bx, ay - by) / pinchP.d));
+    const [mx, my] = tmid(e.touches[0], e.touches[1]);
+    const ns = Math.max(0.7, Math.min(FZ_MAX * 1.2, pinchP.s * tdist(e.touches[0], e.touches[1]) / pinchP.d));
     const cx = (pinchP.mx - pinchP.x) / pinchP.s, cy = (pinchP.my - pinchP.y) / pinchP.s;
-    pz.s = ns; pz.x = mx - cx * ns; pz.y = my - cy * ns; pzApply(false);
+    fz.s = ns; fz.x = mx - cx * ns; fz.y = my - cy * ns; fsApply(false);
     return;
   }
   if (panP && e.touches.length === 1) {            // 拡大中: 移動だけ(一覧には戻らない・めくらない)
@@ -2583,9 +2602,9 @@ $("vimgbox").addEventListener("touchend", e => {
   if (pinchP) {
     if (e.touches.length < 2) {
       pinchP = null;
-      if (pz.s < 1.05) pzReset(true);
-      else { if (pz.s > PZ_MAX) { const b = pzBox(), cx = (b.W / 2 - pz.x) / pz.s, cy = (b.H / 2 - pz.y) / pz.s; pz.s = PZ_MAX; pz.x = b.W / 2 - cx * PZ_MAX; pz.y = b.H / 2 - cy * PZ_MAX; } pzClamp(); pzApply(true); }
-      if (e.touches.length === 1 && pzZoomed()) { const [x, y] = ppt(e.touches[0]); panP = {x: pz.x, y: pz.y, sx: x, sy: y, moved: true}; }
+      if (fz.s < 1.05) closeFs();                  // 拡大しなかった(縮めた)ときは、プレビューに戻る
+      else if (fz.s > FZ_MAX) { const b = fsBox(); fsZoomAt(b.W / 2, b.H / 2, FZ_MAX, true); }
+      else { fsClamp(); fsApply(true); }
     }
     swiped = true; setTimeout(() => { swiped = false; }, 400);
     return;
