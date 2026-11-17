@@ -1831,17 +1831,31 @@ const grid = $("grid");
 let list = [], listShown = 0, lastYM = null, monthN = {}, newest = store.get("newest", false);
 $("sort").textContent = newest ? "新しい順" : "古い順";
 const CHUNK = 240;
-const io = new IntersectionObserver(es => es.forEach(e => {
-  if (!e.isIntersecting) return;
-  const el = e.target;
-  if (el.id === "more") { renderList(false); return; }
-  io.unobserve(el);
+// 画像は、見えるところに近づいたら付け、遠く(画面数枚分)離れたら外す。
+// ずっとスクロールしても、表示中の画像(メモリ)が増え続けて重くならないように
+function showTileImg(el) {
+  if (el.dataset.l) return;
+  el.dataset.l = "1";
   const it = list[+el.dataset.k];
+  if (!it) return;
   imgURL(it).then(u => {
+    if (el.dataset.l !== "1" || el.querySelector("img, .noimg")) return;      // そのあいだに遠ざかった
     if (u) el.insertAdjacentHTML("afterbegin", `<img src="${u}" alt="" decoding="async">`);
     else el.insertAdjacentHTML("afterbegin", '<span class="noimg">画像なし</span>');
   });
+}
+function hideTileImg(el) {
+  if (!el.dataset.l) return;
+  delete el.dataset.l;
+  el.querySelectorAll("img, .noimg").forEach(x => x.remove());
+}
+const io = new IntersectionObserver(es => es.forEach(e => {
+  const el = e.target;
+  if (el.id === "more") { if (e.isIntersecting) renderList(false); return; }
+  if (e.isIntersecting) showTileImg(el);
 }), {root: grid, rootMargin: "400px"});
+const ioFar = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) hideTileImg(e.target); }),
+                                       {root: grid, rootMargin: "2500px 0px"});
 
 const ymLabel = ym => ym ? `${+ym.slice(0, 4)}年${+ym.slice(5, 7)}月` : "撮影日不明";
 let sheetBase = [];
@@ -1860,7 +1874,7 @@ function renderList(reset) {
     list.sort((a, b) => newest ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d));
     monthN = {};
     list.forEach(it => { const k = it.d.slice(0, 7); monthN[k] = (monthN[k] || 0) + 1; });
-    io.disconnect();
+    io.disconnect(); ioFar.disconnect();
     grid.innerHTML = ""; listShown = 0; lastYM = null; grid.scrollTop = 0;
   }
   const old = $("more"); if (old) { io.unobserve(old); old.remove(); }
@@ -1873,7 +1887,7 @@ function renderList(reset) {
   }
   listShown = Math.min(list.length, listShown + CHUNK);
   grid.insertAdjacentHTML("beforeend", html);
-  grid.querySelectorAll(".tile:not([data-o])").forEach(el => { el.dataset.o = 1; io.observe(el); });
+  grid.querySelectorAll(".tile:not([data-o])").forEach(el => { el.dataset.o = 1; io.observe(el); ioFar.observe(el); });
   if (listShown < list.length) { grid.insertAdjacentHTML("beforeend", '<div id="more" style="grid-column:1/-1;height:1px"></div>'); io.observe($("more")); }
 }
 grid.addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) tapItem(list, +t.dataset.k); });
