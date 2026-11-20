@@ -855,9 +855,11 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #stitle { flex: 1 1 140px; min-width: 0; font-weight: 800; font-size: 15px; }
 .ibtn { min-width: 40px; min-height: 36px; border: 1px solid var(--line); background: var(--chip); border-radius: 9px; font-size: 14px; padding: 0 9px; }
 #ssub { flex: none; font-size: 12px; color: var(--sub); padding: 0 16px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#grid { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; align-content: start; grid-auto-rows: max-content;
-        grid-template-columns: repeat(auto-fill, minmax(var(--sz, 110px), 1fr)); gap: 3px; touch-action: pan-y;
+#grid { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: block; touch-action: pan-y; overflow-anchor: none;
         padding: 0 max(4px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px)); }
+/* 月ごとのかたまり。画面から遠い月は、描くのを省く(何千枚あっても軽く) */
+.mon { content-visibility: auto; }
+.mg { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--sz, 110px), 1fr)); gap: 3px; }
 .mh { grid-column: 1 / -1; position: sticky; top: 0; z-index: 2; background: var(--head); color: var(--head-fg); font-weight: 800; font-size: 14px;
       padding: 7px 12px; margin: 6px -4px 2px; display: flex; gap: 8px; align-items: baseline; }
 .mh span { font-weight: 400; font-size: 12px; opacity: .9; font-variant-numeric: tabular-nums; }
@@ -1874,22 +1876,50 @@ function renderList(reset) {
     list.sort((a, b) => newest ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d));
     monthN = {};
     list.forEach(it => { const k = it.d.slice(0, 7); monthN[k] = (monthN[k] || 0) + 1; });
-    io.disconnect(); ioFar.disconnect();
+    io.disconnect(); ioFar.disconnect(); monIO.disconnect();
     grid.innerHTML = ""; listShown = 0; lastYM = null; grid.scrollTop = 0;
   }
   const old = $("more"); if (old) { io.unobserve(old); old.remove(); }
-  let html = "";
+  // 月ごとに <section class="mon"> → 見出し + タイルの並び(.mg)。同じ月の続きは、その月の並びに足す
+  let mg = lastYM !== null ? grid.querySelector(`.mon[data-ym="${lastYM}"] .mg`) : null, html = "";
+  const flush = () => { if (mg && html) { mg.insertAdjacentHTML("beforeend", html); html = ""; } };
   for (let k = listShown; k < Math.min(list.length, listShown + CHUNK); k++) {
     const it = list[k], ym = it.d.slice(0, 7);
-    if (ym !== lastYM) { html += `<div class="mh">${ymLabel(ym)}<span>${monthN[ym]} 件</span></div>`; lastYM = ym; }
+    if (ym !== lastYM || !mg) {
+      flush();
+      const sec = document.createElement("section");
+      sec.className = "mon"; sec.dataset.ym = ym;
+      sec.innerHTML = `<div class="mh">${ymLabel(ym)}<span>${monthN[ym]} 件</span></div><div class="mg"></div>`;
+      grid.appendChild(sec); monIO.observe(sec); sizeHint(sec);
+      mg = sec.lastChild; lastYM = ym;
+    }
     html += `<button type="button" class="tile" data-k="${k}" aria-label="${esc(it.n)} ${esc(it.d)}">` +
             (it.k === "動画" ? '<span class="play"></span>' + (durOf(it) ? `<span class="du">${durText2(durOf(it))}</span>` : "") : "") + `<span class="d">${esc(it.d.slice(5, 10).replace("-", "/"))}</span></button>`;
   }
+  flush();
   listShown = Math.min(list.length, listShown + CHUNK);
-  grid.insertAdjacentHTML("beforeend", html);
-  grid.querySelectorAll(".tile:not([data-o])").forEach(el => { el.dataset.o = 1; io.observe(el); ioFar.observe(el); });
-  if (listShown < list.length) { grid.insertAdjacentHTML("beforeend", '<div id="more" style="grid-column:1/-1;height:1px"></div>'); io.observe($("more")); }
+  // 画面に近い月のタイルだけ見張る(見張る数を少なくして軽くする)
+  grid.querySelectorAll(".mon.near .tile:not([data-o])").forEach(watchTile);
+  if (listShown < list.length) { grid.insertAdjacentHTML("beforeend", '<div id="more" style="height:1px"></div>'); io.observe($("more")); }
 }
+function watchTile(el) { el.dataset.o = 1; io.observe(el); ioFar.observe(el); }
+// 月の高さの見積もり(まだ描いていない月の場所取り。描いたあとは実際の高さを覚える)
+function sizeHint(sec) {
+  const n = monthN[sec.dataset.ym] || 0, w = grid.clientWidth || 360;
+  const cols = Math.max(1, Math.floor((w - 8 + 3) / (sz + 3))), cell = (w - 8 - 3 * (cols - 1)) / cols;
+  sec.style.containIntrinsicSize = `auto ${Math.round(40 + Math.ceil(n / cols) * (cell + 3))}px`;
+}
+// 月のかたまりが画面に近づいたら、その月のタイルを見張る / 遠ざかったら見張るのをやめて画像を外す
+const monIO = new IntersectionObserver(es => es.forEach(e => {
+  const sec = e.target;
+  if (e.isIntersecting) {
+    sec.classList.add("near");
+    sec.querySelectorAll(".tile:not([data-o])").forEach(watchTile);
+  } else {
+    sec.classList.remove("near");
+    sec.querySelectorAll(".tile[data-o]").forEach(el => { io.unobserve(el); ioFar.unobserve(el); delete el.dataset.o; hideTileImg(el); });
+  }
+}), {root: grid, rootMargin: "1500px 0px"});
 grid.addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) tapItem(list, +t.dataset.k); });
 $("sclose").onclick = () => { $("sheet").hidden = true; };
 // ---- 表示のしかた: 地図 / 年月ごとの一覧(位置情報のないものも含めて全部) ----
@@ -1930,7 +1960,7 @@ function tileAt(x, y) {                      // その点の写真・動画(す�
   if (t && grid.contains(t)) return t;
   let best = null, bd = Infinity;
   const g = grid.getBoundingClientRect();
-  for (const c of grid.querySelectorAll(".tile")) {
+  for (const c of grid.querySelectorAll(".mon.near .tile")) {
     const r = c.getBoundingClientRect();
     if (r.bottom < g.top - 50 || r.top > g.bottom + 50) continue;
     const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
@@ -1948,6 +1978,7 @@ function setSize(v, anchor) {
   sz = Math.max(56, Math.min(360, Math.round(v)));
   grid.style.setProperty("--sz", sz + "px");
   store.set("size", sz);
+  grid.querySelectorAll(".mon:not(.near)").forEach(sizeHint);
   if (listShown < list.length && grid.scrollHeight <= grid.clientHeight + 400) renderList(false);
   if (anchor) {                              // 基準の写真・動画を、元の画面の高さに戻す
     let t = grid.querySelector(`.tile[data-k="${anchor.k}"]`);
