@@ -2342,13 +2342,13 @@ function VZoom(box, vid, ctl, o) {
   });
   ["gesturestart", "gesturechange", "gestureend"].forEach(t => box.addEventListener(t, e => e.preventDefault()));
   // タップ: 止まっていればすぐ再生(待たない。一時停止は再生バーのボタンで)、ダブルタップ: 拡大/元に戻す
-  let last = 0;
+  let last = 0, tapTimer = null;
   box.addEventListener("click", e => {
     e.stopPropagation();
     if (block) return;
     const now = Date.now(), r = box.getBoundingClientRect();
     if (now - last < 300) {
-      last = 0;
+      last = 0; clearTimeout(tapTimer);
       if (zoomed()) reset(true);
       else {
         const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
@@ -2359,7 +2359,10 @@ function VZoom(box, vid, ctl, o) {
       return;
     }
     last = now;
-    if (vid.paused) vid.play().catch(() => {});
+    if (vid.paused) { vid.play().catch(() => {}); return; }     // 止まっているとき: すぐ再生
+    // 再生中: 1 回タップ(ダブルタップでなかったとき)を知らせる(全画面の切り替えなど)。拡大中は何もしない
+    clearTimeout(tapTimer);
+    if (o.onTap && !zoomed()) tapTimer = setTimeout(() => o.onTap(), 300);
   });
   box.addEventListener("wheel", e => {      // パソコンで試すとき用(Ctrl+ホイール / トラックパッドのピンチ)
     if (!e.ctrlKey) return;
@@ -2379,6 +2382,7 @@ const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {
   onSwipeDown: () => { if ($("viewer").classList.contains("vfull")) setVfull(false); else $("vclose").click(); },
   onBeforeZoom: () => { if (!$("viewer").classList.contains("vfull")) { vfullByPinch = true; setVfull(true); } },
   onZoomEnd: zoomedNow => { if (!zoomedNow && vfullByPinch) setVfull(false); vfullByPinch = false; },   // ピンチで拡大しなかった(縮めた)ときはプレビューに戻る
+  onTap: () => { vfullByPinch = false; setVfull(!$("viewer").classList.contains("vfull")); },      // 再生中のタップ: プレビュー ⇔ 全画面
 });
 // 止まっているあいだは真ん中に再生マーク(タップで再生)。再生中は消す
 $("vvbig").onclick = e => { e.stopPropagation(); $("vvid").play().catch(() => {}); };
