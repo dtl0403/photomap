@@ -1108,10 +1108,6 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <h3>動画(.pvid)</h3>
     <p class="muted">パソコンで「動画も iPhone で再生できるようにする」を選ぶと、「写真マップ_iPhone用」フォルダに年ごと・月ごとの .pvid ができます。［ファイルを開く］で .pmap と一緒に選ぶと(フォルダの中で「選択」→ 全部)、一覧やプレビューから動画を再生できます。見たい年・月のものだけ選んでもかまいません。<br><span id="vidinfo">—</span></p>
     <div class="row" id="dirrow" hidden><label class="btn" for="pickdir">フォルダごと開く</label><input id="pickdir" class="vh" type="file" webkitdirectory multiple></div>
-    <h3>動作の診断(一覧が重いときの原因調べ)</h3>
-    <p class="muted">オンにすると、画面の左上に動きの速さなどの数字が出ます。一覧をいつもどおりスクロールしてから［記録をコピー］を押し、Claude に貼り付けて送ってください。</p>
-    <label class="opt"><input type="checkbox" id="dg-on"><span><b>診断の数字を出す</b></span></label>
-    <label class="opt"><input type="checkbox" id="dg-noimg"><span><b>試験: 一覧に画像を出さない</b><br>画像なしでも重いか比べるためのものです。調べ終わったらオフにしてください</span></label>
     <h3>前回のデータ</h3>
     <p class="muted">一度読み込んだ .pmap は、この iPhone の中(このページ用の保存場所)に覚えておき、次に開いたときにすぐ表示できます。ドライブをつないでいなくても地図は見られます。ホーム画面に追加したアイコンから開くと、覚えたデータが消えにくくなります。<br><span id="savedinfo">—</span></p>
     <p class="muted" style="margin-bottom:4px">読み込んだ .pmap を覚えるか:</p>
@@ -1120,6 +1116,13 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <label class="opt"><input type="radio" name="remmode" value="never" id="rm-never"><span><b>覚えない</b>(容量を使わない・毎回ファイルを選ぶ)</span></label>
     <label class="opt"><input type="checkbox" id="remvid"><span><b>動画(.pvid)も覚える</b>(オフにすると地図と写真だけを覚えて容量を節約します。動画は元のファイルを開いて見ます)</span></label>
     <div class="row"><button type="button" class="btn" id="forgetvid">覚えている動画だけ消す</button><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
+    <div class="row" style="margin-top:8px"><button type="button" class="btn" id="devbtn" aria-expanded="false" aria-controls="devtools">開発者用ツール</button></div>
+    <div id="devtools" hidden>
+    <h3>動作の診断(一覧が重いときの原因調べ)</h3>
+    <p class="muted">オンにすると、画面の左下に動きの速さなどの数字が出ます。一覧をいつもどおりスクロールしてから［記録をコピー］を押し、Claude に貼り付けて送ってください。</p>
+    <label class="opt"><input type="checkbox" id="dg-on"><span><b>診断の数字を出す</b></span></label>
+    <label class="opt"><input type="checkbox" id="dg-noimg"><span><b>試験: 一覧に画像を出さない</b><br>画像なしでも重いか比べるためのものです。調べ終わったらオフにしてください</span></label>
+    </div>
   </div>
 </div>
 <div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
@@ -1911,6 +1914,7 @@ function loadTileImg(el) {
     if (u) {
       el.insertAdjacentHTML("afterbegin", `<img src="${u}" alt="" decoding="async">`);
       const im = el.firstChild;
+      tileRot(im, it);
       const done = ok => { DG.pending--; if (ok) { DG.add("show", performance.now() - t0); DG.loaded++; if (im.naturalWidth) DG.px = im.naturalWidth + "×" + im.naturalHeight; } else DG.fail++; res(); };
       im.addEventListener("load", () => done(true), {once: true}); im.addEventListener("error", () => done(false), {once: true});
     } else { DG.pending--; el.insertAdjacentHTML("afterbegin", '<span class="noimg">画像なし</span>'); res(); }
@@ -2305,10 +2309,25 @@ function tapItem(arr, k) {
   // プレビュー画面を出さない: プレビューの画像をタップしたときと同じ動き
   const it = arr[k];
   if (it.k === "動画") {
-    if (vget(it)) { autoPlay = true; openViewer(arr, k); return; }   // iPhone 用の動画: すぐ再生
+    if (vget(it)) { openVideoFull(arr, k, false); return; }          // iPhone 用の動画: 全画面で止まった状態(タップで再生)
     vlist = arr; vi = k; openOriginal(it); return;                     // ない: 元のファイルを開く
   }
   openFullscreen(arr, k);                                                // 写真: すぐ全画面
+}
+const isDirect = () => tapMode === "direct";
+function openVideoFull(arr, k, play) {      // 動画を全画面で(play: すぐ再生するか)
+  autoPlay = !!play; vfullByPinch = false;
+  openViewer(arr, k);
+  setVfull(true);
+}
+// 全画面のまま前後へ(写真は写真の全画面、動画は動画の全画面)
+function navDirect(d) {
+  const ni = vi + d;
+  if (ni < 0 || ni >= vlist.length) return;
+  const it = vlist[ni];
+  if (it.k === "動画" && vget(it)) { if (!$("fs").hidden) closeFs(); openVideoFull(vlist, ni, false); return; }
+  if (!$("viewer").hidden) { stopVid(); setVfull(false); $("viewer").hidden = true; }
+  openFullscreen(vlist, ni);
 }
 function openFullscreen(arr, k) {
   vlist = arr; vi = k;
@@ -2493,11 +2512,17 @@ function VZoom(box, vid, ctl, o) {
 let vfullByPinch = false;
 const setVfull = on => $("viewer").classList.toggle("vfull", on);
 const VZ = VZoom($("vvbox"), $("vvid"), $("vvctl"), {
-  onSwipe: d => (d > 0 ? $("vnext") : $("vprev")).click(),
-  onSwipeDown: () => { if ($("viewer").classList.contains("vfull")) setVfull(false); else $("vclose").click(); },
+  onSwipe: d => { if (isDirect() && $("viewer").classList.contains("vfull")) navDirect(d); else (d > 0 ? $("vnext") : $("vprev")).click(); },
+  onSwipeDown: () => {
+    if (isDirect() || !$("viewer").classList.contains("vfull")) $("vclose").click();   // 一覧へ(演出つき)
+    else setVfull(false);
+  },
   onBeforeZoom: () => { if (!$("viewer").classList.contains("vfull")) { vfullByPinch = true; setVfull(true); } },
   onZoomEnd: zoomedNow => { if (!zoomedNow && vfullByPinch) setVfull(false); vfullByPinch = false; },   // ピンチで拡大しなかった(縮めた)ときはプレビューに戻る
-  onTap: () => { vfullByPinch = false; setVfull(!$("viewer").classList.contains("vfull")); },      // 再生中のタップ: プレビュー ⇔ 全画面
+  onTap: () => {
+    if (isDirect()) { $("vvid").pause(); return; }                       // プレビューを出さないモード: 再生中のタップで一時停止
+    vfullByPinch = false; setVfull(!$("viewer").classList.contains("vfull"));   // 再生中のタップ: プレビュー ⇔ 全画面
+  },
 });
 // 止まっているあいだは真ん中に再生マーク(タップで再生)。再生中は消す
 $("vvbig").onclick = e => { e.stopPropagation(); $("vvid").play().catch(() => {}); };
@@ -2533,7 +2558,10 @@ function flyBack(it) {
   // 元の位置(いま画面に映っている写真・動画)
   let from = null, url = "";
   const v = $("vvid");
-  if (!$("vvwrap").hidden && v.videoWidth) {
+  if (!$("fs").hidden && $("fsimg").getAttribute("src")) {      // 全画面の写真から
+    const im = $("fsimg");
+    from = contentRect(im, im.naturalWidth, im.naturalHeight); url = im.src;
+  } else if (!$("vvwrap").hidden && v.videoWidth) {
     from = contentRect(v, v.videoWidth, v.videoHeight);
     try {                                     // 動画は、止めたところの絵を使う
       const c = document.createElement("canvas"); c.width = Math.min(640, v.videoWidth); c.height = Math.round(c.width * v.videoHeight / v.videoWidth);
@@ -2565,6 +2593,35 @@ function flyBack(it) {
   fly.addEventListener("transitionend", end); setTimeout(end, 450);
   return true;
 }
+// ---- 長押し(1 秒): プレビューを出さないモードで、全画面 → プレビュー
+let lpFired = false;
+function longPress(el, action) {
+  let t = null, x = 0, y = 0;
+  const clear = () => { clearTimeout(t); t = null; };
+  el.addEventListener("touchstart", e => {
+    clear();
+    if (e.touches.length !== 1 || !isDirect()) return;
+    x = e.touches[0].clientX; y = e.touches[0].clientY;
+    t = setTimeout(() => { t = null; lpFired = true; action(); setTimeout(() => { lpFired = false; }, 900); }, 1000);
+  }, {passive: true});
+  el.addEventListener("touchmove", e => { if (t && Math.hypot(e.touches[0].clientX - x, e.touches[0].clientY - y) > 10) clear(); }, {passive: true});
+  el.addEventListener("touchend", clear); el.addEventListener("touchcancel", clear);
+}
+longPress($("fs"), () => {                    // 写真の全画面 → プレビュー
+  const fromList = $("viewer").hidden;
+  closeFs();
+  if (fromList) openViewer(vlist, vi);
+});
+longPress($("vvbox"), () => {                 // 動画の全画面 → プレビュー
+  if ($("viewer").classList.contains("vfull")) { VZ.reset(false); setVfull(false); }
+});
+// 長押しのあとのタップは無視。プレビューを出さないモードのプレビューで動画を短くタップ → 全画面に戻る
+document.addEventListener("click", e => {
+  if (lpFired) { lpFired = false; e.stopPropagation(); e.preventDefault(); return; }
+  if (isDirect() && !$("viewer").hidden && !$("viewer").classList.contains("vfull") && e.target.closest && e.target.closest("#vvbox")) {
+    e.stopPropagation(); vfullByPinch = false; setVfull(true);
+  }
+}, true);
 $("vclose").onclick = () => {
   const it = vlist[vi];
   const flying = !$("viewer").hidden && flyBack(it);   // 先に今の絵を写し取ってから、プレビューを閉じる
@@ -2633,16 +2690,22 @@ async function showRotated(it, src) {        // プレビューの画像を、�
     rotURL = u; $("vimg").src = u;
   } catch (e) { $("vimg").src = src; }
 }
-$("vrot").onclick = async () => {
+// 一覧のサムネイルも、回した向きで見せる(正方形の枠なので、回しても枠はそのまま)
+function tileRot(im, it) { const d = ROTS[vkey(it)] || 0; im.style.transform = d ? `rotate(${d}deg)` : ""; }
+async function rotateBy(delta) {             // delta: 90 = 時計回り / -90 = 反時計回り
   const it = vlist[vi];
   if (!it || it.k === "動画" || !rotSrc) return;
-  const k = vkey(it), deg = ((ROTS[k] || 0) + 90) % 360;
+  const k = vkey(it), deg = (((ROTS[k] || 0) + delta) % 360 + 360) % 360;
   if (deg) ROTS[k] = deg; else delete ROTS[k];
   const keys = Object.keys(ROTS); if (keys.length > 5000) delete ROTS[keys[0]];   // 覚えすぎないように
   store.set("rots", ROTS);
   pzReset(false);
   await showRotated(it, rotSrc);
-};
+  if (!$("fs").hidden) { $("fsimg").src = $("vimg").src; fsReset(false); }
+  const ti = grid.querySelector(`.tile[data-k="${list.indexOf(it)}"] img`);
+  if (ti) tileRot(ti, it);
+}
+$("vrot").onclick = () => rotateBy(90);
 document.addEventListener("keydown", e => {
   if ($("viewer").hidden) return;
   if (e.key === "Escape") $("vclose").click();
@@ -2703,7 +2766,7 @@ $("fs").addEventListener("click", e => {
   const cur = vlist[vi];
   if (cur && cur.k === "動画" && !zoomed()) {    // 動画: 再生する(iPhone 用の動画があれば) / 元のファイルを開く
     $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false);
-    if (vget(cur)) { autoPlay = true; openViewer(vlist, vi); } else openOriginal(cur);
+    if (vget(cur)) { if (isDirect()) openVideoFull(vlist, vi, true); else { autoPlay = true; openViewer(vlist, vi); } } else openOriginal(cur);
     return;
   }
   const now = Date.now();
@@ -2716,7 +2779,8 @@ $("fs").addEventListener("click", e => {
   if (zoomed()) return;                          // 拡大中の1回タップでは閉じない
   clearTimeout(fsTapTimer);
   fsTapTimer = setTimeout(() => {
-    $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false);
+    if ($("viewer").hidden) flyBack(vlist[vi]);  // 一覧へ戻る(小さくなって一覧の場所へ)
+    closeFs();
   }, 300);
 });
 let fsx = null, fsy = null, fsSwiped = false, pinch = null, pan = null, fsMoved = false;
@@ -2747,6 +2811,7 @@ $("fs").addEventListener("touchmove", e => {
   } else if (fsx !== null && !zoomed() && e.touches.length === 1) {     // 拡大していないとき: 上下に引くと写真が付いてくる
     const dx = e.touches[0].clientX - fsx, dy = e.touches[0].clientY - fsy;
     if (!fsPull && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) fsPull = true;
+    if (fsPull && isDirect()) return;            // 回す操作: 写真は動かさない(離したときに回す)
     if (fsPull) {
       const im = $("fsimg"); im.classList.remove("anim");
       im.style.transform = `translate3d(0,${dy}px,0) scale(${Math.max(0.8, 1 - Math.abs(dy) / 1500)})`;
@@ -2775,14 +2840,26 @@ $("fs").addEventListener("touchend", e => {
     return;
   }
   if (fsx === null) return;
+  const fsx0 = fsx;
   const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
   fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
+  if (fsPull && isDirect()) {                    // プレビューを出さないモード: 上下のスワイプで 90 度回す
+    fsPull = false;
+    if (Math.abs(dy) > 50) {
+      const right = fsx0 > innerWidth / 2, up = dy < 0;
+      rotateBy(right === up ? -90 : 90);         // 右で上・左で下 = 反時計回り / 右で下・左で上 = 時計回り
+    }
+    return;
+  }
   if (fsPull) {                                  // 上下のスワイプ: 前の画面(プレビュー)に戻る
     fsPull = false;
     if (Math.abs(dy) > 80) closeFs(); else { $("fs").style.backgroundColor = ""; fsApply(true); }
     return;
   }
-  if (Math.abs(dx) > Math.abs(dy)) { if (dx > 50) $("vprev").click(); else if (dx < -50) $("vnext").click(); }
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (isDirect() && $("viewer").hidden) navDirect(dx > 0 ? -1 : 1);   // 全画面のまま前後へ(動画なら動画の全画面)
+    else if (dx > 0) $("vprev").click(); else $("vnext").click();
+  }
 });
 document.addEventListener("keydown", e => {
   if ($("fs").hidden) return;
@@ -2925,8 +3002,8 @@ const DG = {on: store.get("diag", false), noimg: store.get("diagNoimg", false), 
       遅いコマのときの様子: DG.events};
   };
   setInterval(() => {
-    box.hidden = !DG.on;
-    if (!DG.on) return;
+    box.hidden = !DG.on || !$("settings").hidden;      // 設定を開いている間は隠す
+    if (box.hidden) return;
     const c = counts(), p = DG.st.prep, s = DG.st.show;
     txt.textContent = `コマ ${Math.round(med(DG.frames))}ms 遅いコマ ${DG.slow}回 最大 ${Math.round(DG.worst)}ms\n` +
       `枠 ${c.tiles} 見張り ${c.watch} 画像 ${c.imgs} 区切り ${c.near}/${c.months}\n` +
@@ -2940,6 +3017,10 @@ const DG = {on: store.get("diag", false), noimg: store.get("diagNoimg", false), 
   };
   b2.onclick = () => { DG.reset(); toast("数え直します"); };
   $("dg-on").checked = DG.on; $("dg-noimg").checked = DG.noimg;
+  // 開発者用ツール: 設定のいちばん下のボタンで開く(診断を使っているときは最初から開いておく)
+  const showDev = on => { $("devtools").hidden = !on; $("devbtn").setAttribute("aria-expanded", String(on)); $("devbtn").textContent = on ? "開発者用ツールを閉じる" : "開発者用ツール"; };
+  showDev(DG.on || DG.noimg);
+  $("devbtn").onclick = () => { const on = $("devtools").hidden; showDev(on); if (on) setTimeout(() => $("devtools").scrollIntoView({block: "nearest", behavior: "smooth"}), 50); };
   $("dg-on").onchange = () => { DG.on = $("dg-on").checked; store.set("diag", DG.on); DG.reset(); };
   $("dg-noimg").onchange = () => {
     DG.noimg = $("dg-noimg").checked; store.set("diagNoimg", DG.noimg); DG.reset();
