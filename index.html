@@ -956,6 +956,11 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #settings .muted { font-size: 12.5px; color: var(--sub); line-height: 1.55; }
 #settings .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .vinfo .acts .open { background: #2f6fb6; font-weight: 800; }
+#diag { position: fixed; left: 4px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 5000; background: rgba(0,0,0,.72); color: #9ff59f;
+        font: 11px/1.35 ui-monospace, Menlo, monospace; padding: 6px 8px; border-radius: 8px; white-space: pre; pointer-events: none; max-width: 80vw; }
+#diag button { pointer-events: auto; }
+#diag[hidden] { display: none !important; }
+#diag button { font: 12px system-ui; margin: 4px 4px 0 0; padding: 3px 8px; border-radius: 6px; border: 0; background: #2f6fb6; color: #fff; }
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 3000; background: var(--fg); color: var(--bg);
          padding: 9px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); }
 #toast[hidden] { display: none !important; }
@@ -1103,6 +1108,10 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <h3>動画(.pvid)</h3>
     <p class="muted">パソコンで「動画も iPhone で再生できるようにする」を選ぶと、「写真マップ_iPhone用」フォルダに年ごと・月ごとの .pvid ができます。［ファイルを開く］で .pmap と一緒に選ぶと(フォルダの中で「選択」→ 全部)、一覧やプレビューから動画を再生できます。見たい年・月のものだけ選んでもかまいません。<br><span id="vidinfo">—</span></p>
     <div class="row" id="dirrow" hidden><label class="btn" for="pickdir">フォルダごと開く</label><input id="pickdir" class="vh" type="file" webkitdirectory multiple></div>
+    <h3>動作の診断(一覧が重いときの原因調べ)</h3>
+    <p class="muted">オンにすると、画面の左上に動きの速さなどの数字が出ます。一覧をいつもどおりスクロールしてから［記録をコピー］を押し、Claude に貼り付けて送ってください。</p>
+    <label class="opt"><input type="checkbox" id="dg-on"><span><b>診断の数字を出す</b></span></label>
+    <label class="opt"><input type="checkbox" id="dg-noimg"><span><b>試験: 一覧に画像を出さない</b><br>画像なしでも重いか比べるためのものです。調べ終わったらオフにしてください</span></label>
     <h3>前回のデータ</h3>
     <p class="muted">一度読み込んだ .pmap は、この iPhone の中(このページ用の保存場所)に覚えておき、次に開いたときにすぐ表示できます。ドライブをつないでいなくても地図は見られます。ホーム画面に追加したアイコンから開くと、覚えたデータが消えにくくなります。<br><span id="savedinfo">—</span></p>
     <p class="muted" style="margin-bottom:4px">読み込んだ .pmap を覚えるか:</p>
@@ -1226,7 +1235,7 @@ async function readPack(file) {
   meta.items.forEach(it => { it.g = ok(it); });   // g: 地図に置けるか(位置情報がある)
   const noGeoIn = meta.items.filter(it => !it.g).length;
   return {name: file.name, root: meta.root, rootpath: meta.rp || meta.root, hasRootpath: !!meta.rp,
-          made: meta.made, vu: meta.vu || "", items: meta.items, sample: false, vsplit: meta.vsplit || "",
+          made: meta.made, vu: meta.vu || "", items: meta.items, sample: false, vsplit: meta.vsplit || "", ts: meta.ts || 0,
           // 入っていない位置情報なしの件数(古い .pmap は位置情報のあるものだけ)
           excluded: meta.ng ? 0 : Math.max(0, (meta.nogps || 0)), noGeoIn};
 }
@@ -1840,10 +1849,17 @@ function showTileImg(el) {
   el.dataset.l = "1";
   const it = list[+el.dataset.k];
   if (!it) return;
+  if (DG.noimg) return;                          // 試験: 画像を出さない
+  const t0 = performance.now(); DG.pending++;
   imgURL(it).then(u => {
-    if (el.dataset.l !== "1" || el.querySelector("img, .noimg")) return;      // そのあいだに遠ざかった
-    if (u) el.insertAdjacentHTML("afterbegin", `<img src="${u}" alt="" decoding="async">`);
-    else el.insertAdjacentHTML("afterbegin", '<span class="noimg">画像なし</span>');
+    const t1 = performance.now(); DG.add("prep", t1 - t0);
+    if (el.dataset.l !== "1" || el.querySelector("img, .noimg")) { DG.pending--; DG.cancel++; return; }      // そのあいだに遠ざかった
+    if (u) {
+      el.insertAdjacentHTML("afterbegin", `<img src="${u}" alt="" decoding="async">`);
+      const im = el.firstChild;
+      const done = ok => { DG.pending--; if (ok) { DG.add("show", performance.now() - t0); DG.loaded++; if (im.naturalWidth) DG.px = im.naturalWidth + "×" + im.naturalHeight; } else DG.fail++; };
+      im.addEventListener("load", () => done(true), {once: true}); im.addEventListener("error", () => done(false), {once: true});
+    } else { DG.pending--; el.insertAdjacentHTML("afterbegin", '<span class="noimg">画像なし</span>'); }
   });
 }
 function hideTileImg(el) {
@@ -2806,6 +2822,68 @@ $("vimgbox").addEventListener("touchend", e => {
 $("vimgbox").addEventListener("touchcancel", () => { sx = null; pinchP = null; panP = null; if (pull) { pull = false; pzReset(true); } });
 ["gesturestart", "gesturechange", "gestureend"].forEach(t => $("vimgbox").addEventListener(t, e => e.preventDefault()));   // Safari の画面拡大を止める
 
+// ---- 動作の診断: 動きの速さ(コマの時間)・一覧の数・画像の準備にかかる時間を数える
+const DG = {on: store.get("diag", false), noimg: store.get("diagNoimg", false), pending: 0, loaded: 0, fail: 0, cancel: 0, px: "",
+  st: {}, frames: [], slow: 0, worst: 0, events: [], t0: performance.now(),
+  add(k, v) { const a = this.st[k] || (this.st[k] = {n: 0, sum: 0, max: 0, recent: []}); a.n++; a.sum += v; a.max = Math.max(a.max, v); a.recent.push(v); if (a.recent.length > 60) a.recent.shift(); },
+  reset() { this.st = {}; this.slow = 0; this.worst = 0; this.events = []; this.loaded = this.fail = this.cancel = 0; this.t0 = performance.now(); }};
+(() => {
+  const box = document.createElement("div"); box.id = "diag"; box.hidden = true; document.body.appendChild(box);
+  const txt = document.createElement("div"); box.appendChild(txt);
+  const b1 = document.createElement("button"); b1.textContent = "記録をコピー"; box.appendChild(b1);
+  const b2 = document.createElement("button"); b2.textContent = "数え直す"; box.appendChild(b2);
+  const med = a => { if (!a || !a.length) return 0; const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  let last = performance.now(), lastScroll = 0, scrolls = 0;
+  grid.addEventListener("scroll", () => { lastScroll = performance.now(); scrolls++; }, {passive: true});
+  const counts = () => ({tiles: grid.querySelectorAll(".tile").length, watch: grid.querySelectorAll(".tile[data-o]").length,
+    imgs: grid.querySelectorAll(".tile img").length, months: grid.querySelectorAll(".mon").length, near: grid.querySelectorAll(".mon.near").length});
+  function frame(t) {
+    const dt = t - last; last = t;
+    if (DG.on) {
+      DG.frames.push(dt); if (DG.frames.length > 120) DG.frames.shift();
+      const moving = t - lastScroll < 300;
+      if (moving && dt > 50) {
+        DG.slow++; DG.worst = Math.max(DG.worst, dt);
+        if (DG.events.length < 40) DG.events.push({at: Math.round((t - DG.t0) / 100) / 10, ms: Math.round(dt), pending: DG.pending, ...counts()});
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  const report = () => {
+    const c = counts(), st = {};
+    for (const [k, a] of Object.entries(DG.st)) st[k] = {件数: a.n, 平均ms: Math.round(a.sum / a.n), 最大ms: Math.round(a.max), 最近の中央ms: Math.round(med(a.recent))};
+    return {時刻: new Date().toLocaleString("ja-JP"), 端末: navigator.userAgent, 画面: `${innerWidth}×${innerHeight}@${devicePixelRatio}`,
+      データ: ds ? {件数: ds.items.length, 画像の大きさ: ds.ts || "?", 実際の画像: DG.px || "?", 見本: !!ds.sample} : null,
+      一覧: {全件: list.length, 並べた: listShown, 写真の大きさ: sz, ...c}, 試験_画像なし: DG.noimg,
+      コマ: {直近の中央ms: Math.round(med(DG.frames)), スクロール中の遅いコマ回数: DG.slow, いちばん遅いコマms: Math.round(DG.worst)},
+      画像: {読み込み中: DG.pending, 表示済み: DG.loaded, 失敗: DG.fail, 途中でやめた: DG.cancel, 準備と表示: st},
+      遅いコマのときの様子: DG.events};
+  };
+  setInterval(() => {
+    box.hidden = !DG.on;
+    if (!DG.on) return;
+    const c = counts(), p = DG.st.prep, s = DG.st.show;
+    txt.textContent = `コマ ${Math.round(med(DG.frames))}ms 遅いコマ ${DG.slow}回 最大 ${Math.round(DG.worst)}ms\n` +
+      `枠 ${c.tiles} 見張り ${c.watch} 画像 ${c.imgs} 月 ${c.near}/${c.months}\n` +
+      `読込中 ${DG.pending}  準備 ${p ? Math.round(med(p.recent)) : "-"}ms 表示まで ${s ? Math.round(med(s.recent)) : "-"}ms (最大 ${s ? Math.round(s.max) : "-"})\n` +
+      `画像 ${DG.px || "-"}${DG.noimg ? "  [試験: 画像なし]" : ""}`;
+  }, 500);
+  b1.onclick = () => {
+    const t = JSON.stringify(report(), null, 1);
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("診断の記録をコピーしました。Claude に貼り付けてください"),
+      () => { prompt("この文字を全部コピーしてください", t); });
+  };
+  b2.onclick = () => { DG.reset(); toast("数え直します"); };
+  $("dg-on").checked = DG.on; $("dg-noimg").checked = DG.noimg;
+  $("dg-on").onchange = () => { DG.on = $("dg-on").checked; store.set("diag", DG.on); DG.reset(); };
+  $("dg-noimg").onchange = () => {
+    DG.noimg = $("dg-noimg").checked; store.set("diagNoimg", DG.noimg); DG.reset();
+    if (DG.noimg) grid.querySelectorAll(".tile img").forEach(x => x.remove());
+    grid.querySelectorAll(".tile[data-l]").forEach(el => { delete el.dataset.l; });
+    grid.querySelectorAll(".mon.near .tile[data-o]").forEach(el => { io.unobserve(el); io.observe(el); });   // 見えている所を付け直す
+  };
+})();
 useDataset(makeSample());
 setViewMode(viewMode);
 offerResume();
