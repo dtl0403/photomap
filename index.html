@@ -889,14 +889,14 @@ html, button, a, input, select, label { touch-action: manipulation; }
 .vbar .ttl { flex: 1; min-width: 0; font-size: 13px; color: #c9d3dc; text-align: center; font-variant-numeric: tabular-nums; }
 .vbtn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 18px; }
 #vimgbox { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; touch-action: none; }
-#vimg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#vimg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
 #vvwrap { position: absolute; inset: 0; }
 #vvwrap[hidden] { display: none; }
 #vvbig { pointer-events: none; position: absolute; left: 50%; top: calc(50% - 24px); transform: translate(-50%, -50%); width: 72px; height: 72px; border-radius: 50%; border: 0; background: rgba(0,0,0,.5); z-index: 2; }
 #vvbig::after { content: ""; position: absolute; left: 28px; top: 20px; border-left: 25px solid #fff; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
 #vvbig[hidden] { display: none; }
 .vz-box { position: absolute; left: 0; right: 0; top: 0; bottom: 48px; overflow: hidden; touch-action: none; background: #000; }
-.vz-box video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; background: #000; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.vz-box video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; background: #000; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
 .vz-ctl { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #111; color: #fff; font: 13px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .vz-ctl button { flex: none; min-width: 40px; height: 36px; border: 0; border-radius: 8px; background: #2a2a2a; color: #fff; font: inherit; font-size: 15px; }
 .vz-ctl .vz-rz { font-size: 13px; padding: 0 10px; }
@@ -926,7 +926,7 @@ html, button, a, input, select, label { touch-action: manipulation; }
 /* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
 #fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
 #fs[hidden] { display: none !important; }
-#fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
 #fs img.anim { transition: transform .22s ease-out; }
 #fs .fsplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%;
               background: rgba(0,0,0,.45); pointer-events: none; }
@@ -2722,7 +2722,7 @@ $("vimgbox").addEventListener("click", e => {
     if (vget(it)) return;                          // 圧縮した動画はこの場で再生(操作は動画の下のボタンで)
     openOriginal(it); return;                                // 動画は(小さな画像がなくても)元の動画を開いて再生する
   }
-  if (e.target !== $("vimg") || !$("vimg").getAttribute("src")) return;
+  if ((e.target !== $("vimg") && e.target !== $("vimgbox")) || !$("vimg").getAttribute("src")) return;
   $("fsimg").src = $("vimg").src;
   $("fsplay").hidden = $("vplay").hidden;
   fsReset(false);
@@ -2841,7 +2841,9 @@ function fsToList() {                            // 全画面 → 一覧(縮ん�
 }
 $("fs").addEventListener("touchcancel", () => { fsx = null; pinch = null; pan = null; if (fsPull) { fsPull = false; $("fs").style.backgroundColor = ""; fsApply(true); } });
 function closeFs() { $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
-["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));   // Safari の画面拡大を止める
+["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));
+// 長押しで iPhone が写真や動画を持ち上げて拡大する(被写体の切り抜き・メニュー)のを止める: 写真・動画そのものには指が当たらないようにし、メニューも出さない
+["fs", "viewer"].forEach(id => $(id).addEventListener("contextmenu", e => e.preventDefault()));   // Safari の画面拡大を止める
 $("fs").addEventListener("touchend", e => {
   if (pinch) {
     if (e.touches.length < 2) {
