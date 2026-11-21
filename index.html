@@ -2792,7 +2792,7 @@ $("fs").addEventListener("touchstart", e => {
     pinch = {d: tdist(e.touches[0], e.touches[1]), s: fz.s, x: fz.x, y: fz.y, mx, my}; pan = null; fsx = null; fsMoved = true;
   } else if (e.touches.length === 1) {
     fsMoved = false; fsPull = false;
-    fsx = e.touches[0].clientX; fsy = e.touches[0].clientY;
+    fsx = e.touches[0].clientX; fsy = e.touches[0].clientY; fsPath = [[fsx, fsy]];
     if (zoomed()) pan = {x: fz.x, y: fz.y, sx: fsx, sy: fsy};
   }
 }, {passive: true});
@@ -2810,6 +2810,7 @@ $("fs").addEventListener("touchmove", e => {
     fz.x = pan.x + t.clientX - pan.sx; fz.y = pan.y + t.clientY - pan.sy; fsClamp(); fsApply(false);
   } else if (fsx !== null && !zoomed() && e.touches.length === 1) {     // 拡大していないとき: 上下に引くと写真が付いてくる
     const dx = e.touches[0].clientX - fsx, dy = e.touches[0].clientY - fsy;
+    fsPath.push([e.touches[0].clientX, e.touches[0].clientY]);
     if (!fsPull && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) fsPull = true;
     if (fsPull && isDirect()) return;            // 回す操作: 写真は動かさない(離したときに回す)
     if (fsPull) {
@@ -2819,7 +2820,25 @@ $("fs").addEventListener("touchmove", e => {
     }
   }
 }, {passive: false});
-let fsPull = false;
+let fsPull = false, fsPath = [];
+// 2辺のスワイプ(L字): 1辺目の向きと2辺目の向きを返す。L字でなければ null
+function lSwipe(path, ex, ey) {
+  const p = path.concat([[ex, ey]]), [sx, sy] = p[0];
+  let ax = null;
+  for (const [x, y] of p) { const dx = x - sx, dy = y - sy; if (Math.max(Math.abs(dx), Math.abs(dy)) > 25) { ax = Math.abs(dx) > Math.abs(dy) ? 0 : 1; break; } }
+  if (ax === null) return null;
+  let ci = 0, best = 0;
+  p.forEach((q, i) => { const d = Math.abs(q[ax] - p[0][ax]); if (d > best) { best = d; ci = i; } });   // 曲がり角 = 1辺目の向きにいちばん進んだ点
+  const c = p[ci], l1 = c[ax] - p[0][ax], l2 = ex - c[0], l2y = ey - c[1];
+  const perp = ax === 0 ? l2y : l2, para = ax === 0 ? l2 : l2y;
+  if (Math.abs(l1) < 50 || Math.abs(perp) < 50 || Math.abs(perp) < Math.abs(para) * 1.2) return null;
+  const v1 = ax === 0 ? [Math.sign(l1), 0] : [0, Math.sign(l1)], v2 = ax === 0 ? [0, Math.sign(perp)] : [Math.sign(perp), 0];
+  return v1[0] * v2[1] - v1[1] * v2[0];          // 正 = 時計回りに描いた / 負 = 反時計回りに描いた
+}
+function fsToList() {                            // 全画面 → 一覧(縮んで戻る演出つき)
+  if (!$("viewer").hidden) $("vclose").click(); else flyBack(vlist[vi]);
+  closeFs();
+}
 $("fs").addEventListener("touchcancel", () => { fsx = null; pinch = null; pan = null; if (fsPull) { fsPull = false; $("fs").style.backgroundColor = ""; fsApply(true); } });
 function closeFs() { $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
 ["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));   // Safari の画面拡大を止める
@@ -2843,13 +2862,10 @@ $("fs").addEventListener("touchend", e => {
   const fsx0 = fsx;
   const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
   fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
-  if (fsPull && isDirect()) {                    // プレビューを出さないモード: 上下のスワイプで 90 度回す
-    fsPull = false;
-    if (Math.abs(dy) > 50) {
-      const right = fsx0 > innerWidth / 2, up = dy < 0;
-      rotateBy(right === up ? -90 : 90);         // 右で上・左で下 = 反時計回り / 右で下・左で上 = 時計回り
-    }
-    return;
+  if (isDirect()) {                              // プレビューを出さないモード
+    const turn = lSwipe(fsPath, e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    if (turn) { fsPull = false; rotateBy(turn > 0 ? 90 : -90); return; }   // 2辺のスワイプ: 描いた向きに 90 度回す(上→右 = 時計回り、下→右 = 反時計回り など)
+    if (fsPull) { fsPull = false; if (Math.abs(dy) > 60) fsToList(); return; }   // 上か下のスワイプ: 一覧に戻る
   }
   if (fsPull) {                                  // 上下のスワイプ: 前の画面(プレビュー)に戻る
     fsPull = false;
