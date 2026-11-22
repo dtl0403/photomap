@@ -2333,7 +2333,31 @@ function navDirect(d) {
 function openFullscreen(arr, k) {
   vlist = arr; vi = k;
   fsReset(false); $("fs").hidden = false;
+  fsQuick(arr[k]);              // 読み込み済みの絵があれば、待たずにすぐ出す
   showV();                      // 全画面に画像を出す(前後にめくれる)
+}
+// ---- 全画面で横にめくったとき、すぐ次の写真に替わるように:
+//      前後の写真をあらかじめ読み込んで描ける状態にしておき、めくった瞬間にそれ(なければ一覧の小さい絵)を出す
+const PRE = new Map();          // 写真 → {u, im}(描ける状態にした画像)
+function fsQuick(it) {
+  if (!it || it.k === "動画" || (ROTS[vkey(it)] || 0)) return;
+  const p = PRE.get(it);
+  if (p && p.im.complete && p.im.naturalWidth) { $("fsimg").src = p.u; return; }
+  const k = list.indexOf(it), t = k >= 0 && document.querySelector(`.tile[data-k="${k}"] img`);
+  if (t && t.getAttribute("src") && t.complete && t.naturalWidth) $("fsimg").src = t.src;   // 一覧の小さい絵でひとまず
+}
+function prefetchAround() {
+  const want = new Set();
+  for (const d of [1, -1, 2, -2]) {
+    const it = vlist[vi + d];
+    if (!it || it.k === "動画") continue;
+    want.add(it);
+    if (PRE.has(it)) continue;
+    const rec = {u: null, im: new Image()}; PRE.set(it, rec);
+    imgURL(it).then(u => { if (!u || PRE.get(it) !== rec) return; rec.u = u; rec.im.src = u; if (rec.im.decode) rec.im.decode().catch(() => {}); }).catch(() => {});
+  }
+  const cur = vlist[vi];
+  for (const it of [...PRE.keys()]) if (!want.has(it) && it !== cur) PRE.delete(it);   // 離れた写真は手放す
 }
 
 // ---------- 1 枚の表示 ----------
@@ -2368,8 +2392,9 @@ async function showV() {
   if (vlist[vi] === it && !$("fs").hidden) {     // 全画面のままで前後に移ったとき
     fsReset(false);
     const fu = it.k !== "動画" && $("vimg").getAttribute("src") ? $("vimg").src : u;   // 回した写真は回した向きで
-    if (fu) $("fsimg").src = fu; else $("fsimg").removeAttribute("src");
+    if (fu) { if ($("fsimg").src !== fu) $("fsimg").src = fu; } else $("fsimg").removeAttribute("src");
     $("fsplay").hidden = it.k !== "動画";
+    prefetchAround();
   }
 }
 let vidURL = null, autoPlay = false, wantPlay = "";
@@ -2901,7 +2926,10 @@ $("fs").addEventListener("touchend", e => {
   const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
   fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
   if (isDirect()) {                              // プレビューを出さないモード
-    if (fsPull) { fsPull = false; if (Math.abs(dy) > 60) fsToList(); return; }   // 上か下のスワイプ: 一覧に戻る
+    fsPull = false;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) { if ($("viewer").hidden) navDirect(dx > 0 ? -1 : 1); else if (dx > 0) $("vprev").click(); else $("vnext").click(); return; }   // 横: 離した瞬間に前後へ(指の動きの最初が少し縦でも)
+    if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx)) fsToList();   // 上か下のスワイプ: 一覧に戻る
+    return;
   }
   if (fsPull) {                                  // 上下のスワイプ: 前の画面(プレビュー)に戻る
     fsPull = false;
