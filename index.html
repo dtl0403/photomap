@@ -924,6 +924,7 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #props .pnote { font-size: 11.5px; color: #8c9aa7; line-height: 1.5; margin: 12px 0 0; }
 #vplay { pointer-events: none; }
 /* 全画面表示(写真をタップで表示、もう一度タップで戻る) */
+#fs, #fs *, #vimgbox, #vimgbox * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #fs { position: fixed; inset: 0; z-index: 2400; background: #000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; touch-action: none; }
 #fs[hidden] { display: none !important; }
 #fs img { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; transform-origin: 0 0; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
@@ -2843,7 +2844,30 @@ $("fs").addEventListener("touchcancel", () => { fsx = null; pinch = null; pan = 
 function closeFs() { $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
 ["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));
 // 長押しで iPhone が写真や動画を持ち上げて拡大する(被写体の切り抜き・メニュー)のを止める: 写真・動画そのものには指が当たらないようにし、メニューも出さない
-["fs", "viewer"].forEach(id => $(id).addEventListener("contextmenu", e => e.preventDefault()));   // Safari の画面拡大を止める
+["fs", "viewer"].forEach(id => $(id).addEventListener("contextmenu", e => e.preventDefault()));
+// 長押しで iPhone の文字選択(写真の中の文字を拾う「テキスト認識表示」も)が始まらないように、写真・動画の上では
+// 指を置いた瞬間の iPhone 標準の動きを止め、短いタップだけこちらでタップとして伝える
+function noNativeTouch(el) {
+  let st = null;
+  el.addEventListener("touchstart", e => {
+    if (e.target.closest && e.target.closest("#vvctl, #vvbig, button, input, a")) { st = null; return; }   // ボタンや再生位置のつまみはそのまま
+    e.preventDefault();
+    st = e.touches.length === 1 ? {x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), moved: false} : null;
+  }, {passive: false});
+  el.addEventListener("touchmove", e => { if (st && Math.hypot(e.touches[0].clientX - st.x, e.touches[0].clientY - st.y) > 10) st.moved = true; }, {passive: true});
+  el.addEventListener("touchend", e => {
+    const s = st; st = null;
+    if (lpFired) { lpFired = false; return; }   // 長押しで画面が切り替わった指: タップにはしない
+    if (!s || s.moved || e.touches.length || Date.now() - s.t > 800) return;
+    const t = e.changedTouches[0], x = t.clientX, y = t.clientY;
+    setTimeout(() => {
+      const tg = document.elementFromPoint(x, y);
+      if (tg && el.contains(tg)) tg.dispatchEvent(new MouseEvent("click", {bubbles: true, cancelable: true, clientX: x, clientY: y, view: window}));
+    }, 0);
+  });
+  el.addEventListener("touchcancel", () => { st = null; });
+}
+noNativeTouch($("fs")); noNativeTouch($("vimgbox"));   // Safari の画面拡大を止める
 $("fs").addEventListener("touchend", e => {
   if (pinch) {
     if (e.touches.length < 2) {
