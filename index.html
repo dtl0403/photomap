@@ -2594,7 +2594,7 @@ function flyBack(it) {
   fly.addEventListener("transitionend", end); setTimeout(end, 450);
   return true;
 }
-// ---- 長押し(1 秒): プレビューを出さないモードで、全画面 → プレビュー
+// ---- 長押し(0.5 秒): プレビューを出さないモードで、全画面 → プレビュー
 let lpFired = false;
 function longPress(el, action) {
   let t = null, x = 0, y = 0;
@@ -2603,7 +2603,7 @@ function longPress(el, action) {
     clear();
     if (e.touches.length !== 1 || !isDirect()) return;
     x = e.touches[0].clientX; y = e.touches[0].clientY;
-    t = setTimeout(() => { t = null; lpFired = true; action(); setTimeout(() => { lpFired = false; }, 900); }, 1000);
+    t = setTimeout(() => { t = null; lpFired = true; action(); setTimeout(() => { lpFired = false; }, 900); }, 500);
   }, {passive: true});
   el.addEventListener("touchmove", e => { if (t && Math.hypot(e.touches[0].clientX - x, e.touches[0].clientY - y) > 10) clear(); }, {passive: true});
   el.addEventListener("touchend", clear); el.addEventListener("touchcancel", clear);
@@ -2762,12 +2762,24 @@ const zoomed = () => fz.s > 1.01;
 const FZ_MAX = 6;
 // タップ(閉じる)とダブルタップ(拡大)の区別
 let fsTapTimer = null, fsLastTap = 0;
+let fsTaps = 0, fsTapX = 0, fsTapY = 0;
 $("fs").addEventListener("click", e => {
   if (fsSwiped) return;                          // めくった・つまんだ・ずらしたときは閉じない
   const cur = vlist[vi];
   if (cur && cur.k === "動画" && !zoomed()) {    // 動画: 再生する(iPhone 用の動画があれば) / 元のファイルを開く
     $("fs").hidden = true; $("fsimg").removeAttribute("src"); fsReset(false);
     if (vget(cur)) { if (isDirect()) openVideoFull(vlist, vi, true); else { autoPlay = true; openViewer(vlist, vi); } } else openOriginal(cur);
+    return;
+  }
+  if (isDirect()) {                              // プレビューを出さないモード: 1回=一覧へ / 2回=拡大・戻す / 3回=90度回す(左半分=反時計回り・右半分=時計回り)
+    fsTaps++; fsTapX = e.clientX; fsTapY = e.clientY;
+    clearTimeout(fsTapTimer);
+    if (fsTaps >= 3) { fsTaps = 0; rotateBy(fsTapX < innerWidth / 2 ? -90 : 90); return; }
+    fsTapTimer = setTimeout(() => {
+      const n = fsTaps; fsTaps = 0;
+      if (n === 2) { if (zoomed()) fsReset(true); else fsZoomAt(fsTapX, fsTapY, 2.5, true); }
+      else if (n === 1 && !zoomed()) { if ($("viewer").hidden) flyBack(vlist[vi]); closeFs(); }
+    }, 300);
     return;
   }
   const now = Date.now();
@@ -2841,7 +2853,7 @@ function fsToList() {                            // 全画面 → 一覧(縮ん�
   closeFs();
 }
 $("fs").addEventListener("touchcancel", () => { fsx = null; pinch = null; pan = null; if (fsPull) { fsPull = false; $("fs").style.backgroundColor = ""; fsApply(true); } });
-function closeFs() { $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
+function closeFs() { clearTimeout(fsTapTimer); fsTaps = 0; $("fs").hidden = true; $("fs").style.backgroundColor = ""; $("fsimg").removeAttribute("src"); fsPull = false; fsReset(false); }
 ["gesturestart", "gesturechange", "gestureend"].forEach(t => $("fs").addEventListener(t, e => e.preventDefault()));
 // 長押しで iPhone が写真や動画を持ち上げて拡大する(被写体の切り抜き・メニュー)のを止める: 写真・動画そのものには指が当たらないようにし、メニューも出さない
 ["fs", "viewer"].forEach(id => $(id).addEventListener("contextmenu", e => e.preventDefault()));
@@ -2889,8 +2901,6 @@ $("fs").addEventListener("touchend", e => {
   const dx = e.changedTouches[0].clientX - fsx, dy = e.changedTouches[0].clientY - fsy; fsx = null;
   fsSwiped = Math.abs(dx) > 10 || Math.abs(dy) > 10; if (fsSwiped) setTimeout(() => { fsSwiped = false; }, 400);
   if (isDirect()) {                              // プレビューを出さないモード
-    const turn = lSwipe(fsPath, e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    if (turn) { fsPull = false; rotateBy(turn > 0 ? 90 : -90); return; }   // 2辺のスワイプ: 描いた向きに 90 度回す(上→右 = 時計回り、下→右 = 反時計回り など)
     if (fsPull) { fsPull = false; if (Math.abs(dy) > 60) fsToList(); return; }   // 上か下のスワイプ: 一覧に戻る
   }
   if (fsPull) {                                  // 上下のスワイプ: 前の画面(プレビュー)に戻る
