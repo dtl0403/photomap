@@ -873,6 +873,21 @@ html, button, a, input, select, label { touch-action: manipulation; }
 .tile .d { position: absolute; left: 0; bottom: 0; font-size: 10.5px; color: #fff; background: rgba(0,0,0,.55); padding: 1px 5px; border-top-right-radius: 4px; font-variant-numeric: tabular-nums; }
 .tile .play { position: absolute; right: 5px; top: 5px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.55); }
 .tile .play::after { content: ""; position: absolute; left: 8px; top: 6px; border-left: 9px solid #fff; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.tile .p360 { position: absolute; right: 4px; top: 4px; font-size: 10.5px; line-height: 1; color: #fff; background: rgba(20,90,160,.85); padding: 3px 5px; border-radius: 4px; font-weight: 700; pointer-events: none; }
+@container (max-width: 60px) { .tile .p360 { padding: 2px 3px; font-size: 9px; } }
+#v360 { position: absolute; left: 10px; bottom: 10px; z-index: 2; pointer-events: none; color: #fff; background: rgba(20,90,160,.9); padding: 6px 10px; border-radius: 8px; font-size: 14px; font-weight: 700; }
+#v360[hidden] { display: none; }
+#pano { position: fixed; inset: 0; z-index: 2450; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#pano[hidden] { display: none; }
+#pa-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#pano .pbar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top) + 8px) 10px 8px; background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,0)); pointer-events: none; }
+#pano .pbar > * { pointer-events: auto; }
+#pano .pbar .ttl { flex: 1; text-align: center; color: #fff; font-size: 14px; pointer-events: none; }
+#pano .pbtm { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px; padding: 10px 10px calc(env(safe-area-inset-bottom) + 14px); pointer-events: none; }
+#pano .pbtm button { pointer-events: auto; min-height: 42px; padding: 0 16px; border-radius: 21px; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 14px; }
+#pano .pbtm button[aria-pressed="true"] { background: #2f6fb6; }
+#pa-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #fff; background: rgba(0,0,0,.5); padding: 8px 14px; border-radius: 10px; font-size: 14px; pointer-events: none; transition: opacity .6s; white-space: nowrap; }
+#pa-hint.off { opacity: 0; }
 .tile .du { position: absolute; left: 4px; top: 4px; font-size: 10.5px; line-height: 1; color: #fff; background: rgba(0,0,0,.55); padding: 3px 5px; border-radius: 4px; font-variant-numeric: tabular-nums; pointer-events: none; }
 @container (max-width: 74px) { .tile .du { display: none; } }   /* 小さくして入りきらないときは出さない */
 .vinfo .vdu { font-weight: 600; font-size: 14px; color: #c9d3dc; margin-left: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1072,7 +1087,7 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <button type="button" class="vbtn" id="vprev" aria-label="前へ">‹</button>
     <button type="button" class="vbtn" id="vnext" aria-label="次へ">›</button>
   </div>
-  <div id="vimgbox"><img id="vimg" alt=""><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><button type="button" id="vvbig" aria-label="再生"></button><div class="vz-ctl" id="vvctl"></div></div></div>
+  <div id="vimgbox"><img id="vimg" alt=""><span id="v360" hidden>360° タップで見回す</span><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><button type="button" id="vvbig" aria-label="再生"></button><div class="vz-ctl" id="vvctl"></div></div></div>
   <div class="vinfo">
     <div class="nm" id="vname"></div>
     <div class="meta" id="vmeta"></div>
@@ -1139,6 +1154,13 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <label class="opt"><input type="checkbox" id="dg-noimg"><span><b>試験: 一覧に画像を出さない</b><br>画像なしでも重いか比べるためのものです。調べ終わったらオフにしてください</span></label>
     </div>
   </div>
+</div>
+<div id="pano" hidden role="dialog" aria-label="360度の写真">
+  <canvas id="pa-cv"></canvas>
+  <div class="pbar"><button type="button" class="vbtn" id="pa-close" aria-label="閉じる">✕</button><span class="ttl" id="pa-pos"></span>
+    <button type="button" class="vbtn" id="pa-prev" aria-label="前へ">‹</button><button type="button" class="vbtn" id="pa-next" aria-label="次へ">›</button></div>
+  <div id="pa-hint">ドラッグで見回す・ピンチで拡大</div>
+  <div class="pbtm"><button type="button" id="pa-gyro" aria-pressed="false">iPhone を傾けて見る</button><button type="button" id="pa-flat">ふつうに表示</button></div>
 </div>
 <div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
@@ -1253,7 +1275,9 @@ async function readPack(file) {
   const meta = JSON.parse(await file.slice(10, 10 + len).text());
   const base = 10 + len;
   meta.items.forEach(it => {
-    it.src = () => Promise.resolve(it.l ? URL.createObjectURL(file.slice(base + it.o, base + it.o + it.l, "image/jpeg")) : "");
+    it.bl = () => it.l ? file.slice(base + it.o, base + it.o + it.l, "image/jpeg") : null;
+    it.hbl = it.hl ? () => file.slice(base + it.ho, base + it.ho + it.hl, "image/jpeg") : null;   // 360 度写真の大きい画像(パソコンで入れたとき)
+    it.src = () => Promise.resolve(it.l ? URL.createObjectURL(it.bl()) : "");
   });
   // 緯度・経度がおかしいもの(0,0 など)は地図に出さない
   const ok = it => Number.isFinite(it.la) && Number.isFinite(it.lo) && Math.abs(it.la) <= 85 && Math.abs(it.lo) <= 180
@@ -1667,6 +1691,7 @@ function useDataset(d) {
   $("dsname").textContent = d.sample ? "見本のデータを表示中"
     : `${d.root} ・ ${d.items.length.toLocaleString()} 件` + (d.made ? ` ・ ${d.made} 作成` : "");
   $("notice").hidden = !d.sample;
+  loadPanoMarks(d);
   buildMonths(d.items);
   $("q").value = "";
   $("sheet").hidden = true;
@@ -1981,6 +2006,7 @@ function tileHTML(k) {
   const it = list[k];
   return `<button type="button" class="tile" data-k="${k}" aria-label="${esc(it.n)} ${esc(it.d)}">` +
     (it.k === "動画" ? '<span class="play"></span>' + (durOf(it) ? `<span class="du">${durText2(durOf(it))}</span>` : "") : "") +
+    (isPano(it) ? '<span class="p360">360°</span>' : "") +
     `<span class="d">${esc(it.d.slice(5, 10).replace("-", "/"))}</span></button>`;
 }
 function renderList(reset) {
@@ -2337,6 +2363,7 @@ function tapItem(arr, k) {
     if (vget(it)) { openVideoFull(arr, k, false); return; }          // iPhone 用の動画: 全画面で止まった状態(タップで再生)
     vlist = arr; vi = k; openOriginal(it); return;                     // ない: 元のファイルを開く
   }
+  if (isPano(it)) { openPano(arr, k); return; }                         // 360 度の写真: 見回せる表示
   openFullscreen(arr, k);                                                // 写真: すぐ全画面
 }
 const isDirect = () => tapMode === "direct";
@@ -2352,6 +2379,7 @@ function navDirect(d) {
   const it = vlist[ni];
   if (it.k === "動画" && vget(it)) { if (!$("fs").hidden) closeFs(); openVideoFull(vlist, ni, false); return; }
   if (!$("viewer").hidden) { stopVid(); setVfull(false); $("viewer").hidden = true; }
+  if (isPano(it)) { if (!$("fs").hidden) closeFs(); openPano(vlist, ni); return; }
   openFullscreen(vlist, ni);
 }
 function openFullscreen(arr, k) {
@@ -2395,6 +2423,7 @@ async function showV() {
   if (it.k === "動画" && durOf(it)) $("vname").insertAdjacentHTML("beforeend", `<span class="vdu">${durText2(durOf(it))}</span>`);
   $("vmeta").textContent = `${it.d || "撮影日時不明"} ・ ${it.g === false ? "位置情報なし" : (it.a || "住所不明")}`;
   $("vgoogle").hidden = it.g === false;
+  $("v360").hidden = !isPano(it);
   $("vopen").href = ds.sample ? "#" : (openURL(it) || "#");
   $("vgoogle").href = `https://www.google.com/maps?q=${it.la},${it.lo}`;
   stopVid();
@@ -2739,13 +2768,13 @@ async function rebuildPack(blob, magic, keep) {
   const meta = JSON.parse(await blob.slice(10, 10 + len).text());
   const base = 10 + len, kept = meta.items.filter(keep);
   if (kept.length === meta.items.length) return null;          // 取り除くものがない
-  const rs = kept.filter(it => it.l).map(it => [it.o, it.o + it.l]).sort((a, b) => a[0] - b[0]);
+  const rs = kept.filter(it => it.l).map(it => [it.o, it.o + it.l]).concat(kept.filter(it => it.hl).map(it => [it.ho, it.ho + it.hl])).sort((a, b) => a[0] - b[0]);
   const runs = [];                                              // つながっている部分はまとめて写す
   for (const [a, b] of rs) { const r = runs[runs.length - 1]; if (r && a <= r[1]) r[1] = Math.max(r[1], b); else runs.push([a, b]); }
   let pos = 0;
   for (const r of runs) { r[2] = pos; pos += r[1] - r[0]; }
   const find = o => { let lo = 0, hi = runs.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (runs[m][0] <= o) lo = m; else hi = m - 1; } return runs[lo]; };
-  kept.forEach(it => { if (it.l) { const r = find(it.o); it.o = r[2] + it.o - r[0]; } });
+  kept.forEach(it => { if (it.l) { const r = find(it.o); it.o = r[2] + it.o - r[0]; } if (it.hl) { const r = find(it.ho); it.ho = r[2] + it.ho - r[0]; } });
   meta.items = kept;
   const js = new TextEncoder().encode(JSON.stringify(meta));
   return {blob: new Blob([magic, be32(js.length), js, ...runs.map(r => blob.slice(base + r[0], base + r[1]))]), meta, base: 10 + js.length};
@@ -2774,7 +2803,9 @@ async function compactSaved() {
           const nb = await idb.get("blob"), nf = nb instanceof File ? nb : new File([nb], m.name), pos = new Map(r.meta.items.map(x => [vkey(x), x]));
           ds.items.forEach(it => {
             const x = pos.get(vkey(it)); if (!x) return;
-            it.src = () => Promise.resolve(x.l ? URL.createObjectURL(nf.slice(r.base + x.o, r.base + x.o + x.l, "image/jpeg")) : "");
+            it.bl = () => x.l ? nf.slice(r.base + x.o, r.base + x.o + x.l, "image/jpeg") : null;
+            it.hbl = x.hl ? () => nf.slice(r.base + x.ho, r.base + x.ho + x.hl, "image/jpeg") : null;
+            it.src = () => Promise.resolve(x.l ? URL.createObjectURL(it.bl()) : "");
           });
           urlCache.clear(); PRE.clear();
           SMALL.forEach((p, k) => p.then(u => { if (!SMALL_OWN.has(u)) SMALL.delete(k); }));
@@ -2808,6 +2839,300 @@ async function compactSaved() {
     toast("容量を空けられませんでした(iPhone の空きが足りないかもしれません)。次に開いたときにもう一度試します");
   } finally { compacting = false; }
 }
+// ---- 360 度の写真(全天球・正距円筒の画像): 見分けて「360°」の印を付け、指で見回せる表示で開く
+//      見分け方: 横幅がちょうど高さの 2 倍で、左端と右端の色がつながっている(一周している)もの。
+//      パソコンで「360 度」と分かったもの(pn)や、大きい画像(ho・hl)が入っていれば、それを使う
+var PANO = null, NOPANO = null, panoScanSeq = 0;
+function isPano(it) { return !!(PANO && it && it.k !== "動画" && PANO.has(vkey(it)) && !(NOPANO && NOPANO.has(vkey(it)))); }
+function loadPanoMarks(d) {
+  if (!NOPANO) NOPANO = new Set(store.get("nopano", []));
+  PANO = new Set();
+  const seq = ++panoScanSeq;
+  if (d.sample) return;
+  d.items.forEach(it => { if (it.pn) PANO.add(vkey(it)); });
+  const sig = `${d.root}|${d.made || ""}|${d.name || ""}`;
+  const c = store.get("pano:" + d.root, null);
+  if (c && c.sig === sig) { c.keys.forEach(k => PANO.add(k)); return; }     // 前に調べた結果を使う
+  setTimeout(() => scanPano(d, sig, seq), 2500);
+}
+function jpegSize(u) {                       // JPEG の先頭から幅・高さを読む(足りなければ -1)
+  if (u[0] !== 0xFF || u[1] !== 0xD8) return null;
+  let p = 2;
+  while (p + 9 < u.length) {
+    if (u[p] !== 0xFF) { p++; continue; }
+    const m = u[p + 1];
+    if (m === 0xFF) { p++; continue; }
+    if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { p += 2; continue; }
+    if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return [(u[p + 7] << 8) | u[p + 8], (u[p + 5] << 8) | u[p + 6]];
+    p += 2 + ((u[p + 2] << 8) | u[p + 3]);
+  }
+  return -1;
+}
+async function seamOK(b) {                    // 左端と右端がつながっているか(一周している画像か)
+  const bm = await createImageBitmap(b);
+  const W = 256, H = 128, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d", {willReadFrequently: true});
+  g.drawImage(bm, 0, 0, W, H); if (bm.close) bm.close();
+  const a = g.getImageData(0, 0, W, H).data, px = (x, y, k) => a[(y * W + x) * 4 + k];
+  let seam = 0, adj = 0, mid = 0, pole = 1e9;
+  for (const y of [0, H - 1]) {                 // いちばん上かいちばん下の行は、真上(真下)の 1 点が横に伸びたものなので、ほぼ一色
+    let sd = 0;
+    for (let k = 0; k < 3; k++) { let m = 0, v = 0; for (let x = 0; x < W; x++) m += px(x, y, k); m /= W; for (let x = 0; x < W; x++) v += (px(x, y, k) - m) ** 2; sd += Math.sqrt(v / W) / 3; }
+    pole = Math.min(pole, sd);
+  }
+  for (let y = 4; y < H - 4; y++) for (let k = 0; k < 3; k++) {
+    seam += Math.abs(px(0, y, k) - px(W - 1, y, k));
+    adj += Math.abs(px(0, y, k) - px(1, y, k)) + Math.abs(px(W - 2, y, k) - px(W - 1, y, k));
+    mid += Math.abs(px(0, y, k) - px(W >> 1, y, k));
+  }
+  const n = (H - 8) * 3; seam /= n; adj /= 2 * n; mid /= n;
+  return seam < adj * 2 + 4 && seam < mid * 0.5 && pole < 10;
+}
+async function scanPano(d, sig, seq) {
+  const its = d.items.filter(it => it.k !== "動画" && it.bl && !it.pn);
+  const found = [];
+  let i = 0;
+  const worker = async () => {
+    while (i < its.length) {
+      if (seq !== panoScanSeq) return;
+      const it = its[i++];
+      try {
+        const b = it.bl(); if (!b) continue;
+        let sz = jpegSize(new Uint8Array(await b.slice(0, 4096).arrayBuffer()));
+        if (sz === -1) sz = jpegSize(new Uint8Array(await b.slice(0, 131072).arrayBuffer()));
+        if (!Array.isArray(sz) || sz[0] < 200 || Math.abs(sz[0] - 2 * sz[1]) > 2) continue;
+        if (await seamOK(b)) { found.push(vkey(it)); PANO.add(vkey(it)); markPano(it); }
+      } catch (e) {}
+    }
+  };
+  await Promise.all(Array.from({length: 6}, worker));
+  if (seq !== panoScanSeq) return;
+  store.set("pano:" + d.root, {sig, keys: found});
+  if (found.length) toast(`360 度の写真が ${found.length.toLocaleString()} 枚見つかりました(一覧に「360°」の印が付きます)`);
+}
+function markPano(it) {                       // 見つかった写真の枠に印を付ける
+  const k = list.indexOf(it);
+  const t = k >= 0 && grid.querySelector(`.tile[data-k="${k}"]`);
+  if (t && !t.querySelector(".p360")) t.insertAdjacentHTML("beforeend", '<span class="p360">360°</span>');
+  if (!$("viewer").hidden && vlist[vi] === it) $("v360").hidden = false;
+}
+// ---- 見回す表示(WebGL: 画面の 1 点ごとに、見ている向きから画像のどこを映すかを計算する)
+const PV = {gl: null, tex: null, yaw: 0, pitch: 0, fov: 1.6, gyro: false, dev: null, off: 0, raf: 0, seq: 0, max: 4096, vx: 0, vy: 0};
+function panoGL() {
+  if (PV.gl) return PV.gl;
+  const cv = $("pa-cv"), gl = cv.getContext("webgl", {antialias: false});
+  if (!gl) return null;
+  const vs = "attribute vec2 p; varying vec2 v; void main(){ v = p; gl_Position = vec4(p, 0.0, 1.0); }";
+  const fs = "precision highp float; varying vec2 v; uniform sampler2D t; uniform mat3 R; uniform vec2 k;" +
+    "void main(){ vec3 d = normalize(R * vec3(v.x * k.x, v.y * k.y, -1.0));" +
+    " float lon = atan(d.x, -d.z), lat = asin(clamp(d.y, -1.0, 1.0));" +
+    " gl_FragColor = texture2D(t, vec2(lon / 6.2831853 + 0.5, 0.5 - lat / 3.1415927)); }";
+  const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  PV.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, PV.tex);
+  [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]
+    .forEach(([a, b]) => gl.texParameteri(gl.TEXTURE_2D, a, b));
+  PV.uR = gl.getUniformLocation(pr, "R"); PV.uk = gl.getUniformLocation(pr, "k");
+  PV.max = Math.min(8192, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096);
+  PV.gl = gl;
+  return gl;
+}
+// 3x3 の行列(行ごと)
+const m3mul = (a, b) => [0, 1, 2].map(r => [0, 1, 2].map(c => a[r][0] * b[0][c] + a[r][1] * b[1][c] + a[r][2] * b[2][c]));
+const m3Y = a => { const c = Math.cos(a), s = Math.sin(a); return [[c, 0, s], [0, 1, 0], [-s, 0, c]]; };
+const m3X = a => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, -s], [0, s, c]]; };
+function qmul(a, b) {
+  return [a[0] * b[3] + a[3] * b[0] + a[1] * b[2] - a[2] * b[1], a[1] * b[3] + a[3] * b[1] + a[2] * b[0] - a[0] * b[2],
+          a[2] * b[3] + a[3] * b[2] + a[0] * b[1] - a[1] * b[0], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+}
+function devMatrix(e) {                       // iPhone の傾き → 見ている向き
+  const d = Math.PI / 180, x = (e.beta || 0) * d / 2, y = (e.alpha || 0) * d / 2, z = -(e.gamma || 0) * d / 2;
+  const c1 = Math.cos(x), c2 = Math.cos(y), c3 = Math.cos(z), s1 = Math.sin(x), s2 = Math.sin(y), s3 = Math.sin(z);
+  let q = [s1 * c2 * c3 + c1 * s2 * s3, c1 * s2 * c3 - s1 * c2 * s3, c1 * c2 * s3 - s1 * s2 * c3, c1 * c2 * c3 + s1 * s2 * s3];
+  q = qmul(q, [-Math.SQRT1_2, 0, 0, Math.SQRT1_2]);
+  const o = -((screen.orientation && screen.orientation.angle) || window.orientation || 0) * d / 2;
+  q = qmul(q, [0, 0, Math.sin(o), Math.cos(o)]);
+  const [qx, qy, qz, qw] = q;
+  return [[1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)],
+          [2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)],
+          [2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)]];
+}
+function panoMatrix() {
+  return PV.gyro && PV.dev ? m3mul(m3Y(PV.off), PV.dev) : m3mul(m3Y(PV.yaw), m3X(PV.pitch));
+}
+function panoDraw() {
+  PV.raf = 0;
+  const gl = PV.gl;
+  if (!gl || $("pano").hidden) return;
+  if (!PV.gyro && (Math.abs(PV.vx) > 1e-4 || Math.abs(PV.vy) > 1e-4) && !PV.touching) {   // 指を離したあと少し滑る
+    PV.yaw += PV.vx; PV.pitch = Math.max(-1.5, Math.min(1.5, PV.pitch + PV.vy)); PV.vx *= 0.92; PV.vy *= 0.92;
+  }
+  const cv = $("pa-cv"), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  gl.viewport(0, 0, w, h);
+  const th = Math.tan(PV.fov / 2);
+  gl.uniform2f(PV.uk, th * w / h, th);
+  const m = panoMatrix();
+  gl.uniformMatrix3fv(PV.uR, false, new Float32Array([m[0][0], m[1][0], m[2][0], m[0][1], m[1][1], m[2][1], m[0][2], m[1][2], m[2][2]]));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  if (PV.gyro || Math.abs(PV.vx) > 1e-4 || Math.abs(PV.vy) > 1e-4) PV.raf = requestAnimationFrame(panoDraw);
+}
+const panoReq = () => { if (!PV.raf) PV.raf = requestAnimationFrame(panoDraw); };
+function panoFovDefault() {                   // 横の見える範囲が 80 度くらいになるように
+  const cv = $("pa-cv"), asp = (cv.clientWidth || innerWidth) / (cv.clientHeight || innerHeight);
+  PV.fov = Math.min(2.1, Math.max(0.9, 2 * Math.atan(Math.tan(40 * Math.PI / 180) / asp)));
+}
+function openPano(arr, k) {
+  vlist = arr; vi = k;
+  if (!panoGL()) { toast("この iPhone では 360 度の表示ができません"); openFullscreen(arr, k); return; }
+  $("pano").hidden = false;
+  PV.yaw = 0; PV.pitch = 0; PV.vx = PV.vy = 0; PV.off = 0;
+  panoFovDefault();
+  panoLoad(vlist[vi]);
+}
+async function panoLoad(it) {
+  const seq = ++PV.seq, gl = PV.gl;
+  $("pa-pos").textContent = vlist.length > 1 ? `${vi + 1} / ${vlist.length}` : "";
+  $("pa-prev").disabled = vi === 0; $("pa-next").disabled = vi === vlist.length - 1;
+  const h = $("pa-hint");
+  h.textContent = "ドラッグで見回す・ピンチで拡大" + (it.hbl ? "" : "\n(画質は低め。パソコンで写真マップを更新するときれいになります)");
+  h.style.whiteSpace = "pre-line"; h.style.textAlign = "center";
+  h.classList.remove("off"); clearTimeout(PV.ht); PV.ht = setTimeout(() => h.classList.add("off"), 3000);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  try {
+    let blob = it.hbl ? it.hbl() : (it.bl ? it.bl() : null);
+    if (!blob) { const u = await imgURL(it); blob = await (await fetch(u)).blob(); }
+    let bm = await createImageBitmap(blob);
+    if (seq !== PV.seq) return;
+    if (bm.width > PV.max) {
+      const c = document.createElement("canvas"); c.width = PV.max; c.height = Math.round(bm.height * PV.max / bm.width);
+      c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height); bm = c;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, PV.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, bm);
+    panoReq();
+  } catch (e) { toast("360 度の写真を開けませんでした"); }
+}
+function closePano() {
+  $("pano").hidden = true; PV.seq++;
+  panoGyro(false);
+  if (PV.raf) { cancelAnimationFrame(PV.raf); PV.raf = 0; }
+}
+function panoNav(d) {
+  const ni = vi + d;
+  if (ni < 0 || ni >= vlist.length) return;
+  const it = vlist[ni];
+  if (isPano(it)) {
+    vi = ni; PV.yaw = 0; PV.pitch = 0; PV.vx = PV.vy = 0; PV.off = PV.gyro && PV.dev ? PV.off : 0;
+    if (!$("viewer").hidden) showV();
+    panoLoad(it); return;
+  }
+  closePano();
+  if (!$("viewer").hidden) { vi = ni; showV(); }        // プレビューから来たとき: プレビューで次へ
+  else navDirect(d);                                     // 一覧から来たとき: 全画面で次へ
+}
+$("pa-close").onclick = () => closePano();
+$("pa-prev").onclick = () => panoNav(-1);
+$("pa-next").onclick = () => panoNav(1);
+$("pa-flat").onclick = () => { closePano(); openFullscreen(vlist, vi); };   // 今回だけふつうの写真として表示
+// iPhone を傾けて見回す(初めてのときに iPhone の許可を求める)
+function onDevOri(e) { if (e.alpha == null && e.beta == null) return; PV.dev = devMatrix(e); panoReq(); }
+async function panoGyro(on) {
+  if (on) {
+    try {
+      if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
+        const r = await DeviceOrientationEvent.requestPermission();
+        if (r !== "granted") { toast("傾きを使う許可がありませんでした(設定の Safari → 「モーションと画面の向きへのアクセス」)"); return; }
+      }
+    } catch (e) { toast("傾きを使えませんでした"); return; }
+    PV.dev = null; PV.gyroStart = true;
+    window.addEventListener("deviceorientation", onDevOri);
+    PV.gyro = true;
+    setTimeout(() => {                                   // いま見ている向きから続けて見回せるように合わせる
+      if (!PV.dev) { if (PV.gyro) toast("傾きを読み取れませんでした"); return; }
+      const f = [PV.dev[0][2] * -1, PV.dev[1][2] * -1, PV.dev[2][2] * -1];
+      PV.off = PV.yaw - Math.atan2(-f[0], -f[2]);
+      panoReq();
+    }, 250);
+  } else {
+    window.removeEventListener("deviceorientation", onDevOri);
+    if (PV.gyro && PV.dev) {                             // 傾きをやめたら、そのときの向きのまま指で見回せるように
+      const m = m3mul(m3Y(PV.off), PV.dev), f = [-m[0][2], -m[1][2], -m[2][2]];
+      PV.yaw = Math.atan2(-f[0], -f[2]); PV.pitch = Math.asin(Math.max(-1, Math.min(1, f[1])));
+    }
+    PV.gyro = false;
+  }
+  $("pa-gyro").setAttribute("aria-pressed", String(PV.gyro));
+  panoReq();
+}
+$("pa-gyro").onclick = () => panoGyro(!PV.gyro);
+// 指の操作: 1 本でドラッグして見回す / 2 本でつまんで拡大・縮小 / タップでボタンを隠す・出す /
+// 長押し(0.5 秒・プレビューを出さないモード)でプレビュー
+(() => {
+  const cv = $("pa-cv");
+  let last = null, pin = null, moved = false, lp = null, t0 = 0, hist = [];
+  const pt = e => [e.touches[0].clientX, e.touches[0].clientY];
+  const dist = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  cv.addEventListener("touchstart", e => {
+    e.preventDefault();
+    PV.touching = true; PV.vx = PV.vy = 0;
+    clearTimeout(lp);
+    if (e.touches.length >= 2) { pin = {d: dist(e), f: PV.fov}; last = null; moved = true; return; }
+    last = pt(e); moved = false; t0 = Date.now(); hist = [[t0, last[0], last[1]]];
+    if (isDirect()) lp = setTimeout(() => { if (!moved) { closePano(); openViewer(vlist, vi); } }, 500);
+  }, {passive: false});
+  cv.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (pin && e.touches.length >= 2) { PV.fov = Math.max(0.35, Math.min(2.1, pin.f * pin.d / dist(e))); panoReq(); return; }
+    if (!last || e.touches.length !== 1) return;
+    const p = pt(e), dx = p[0] - last[0], dy = p[1] - last[1];
+    if (!moved && Math.hypot(p[0] - hist[0][1], p[1] - hist[0][2]) > 8) { moved = true; clearTimeout(lp); $("pa-hint").classList.add("off"); }
+    const k = PV.fov / (cv.clientHeight || innerHeight);
+    if (PV.gyro) PV.off += dx * k;                       // 傾きで見ているときは、横の向きだけ指で回せる
+    else { PV.yaw += dx * k; PV.pitch = Math.max(-1.5, Math.min(1.5, PV.pitch + dy * k)); }
+    last = p; hist.push([Date.now(), p[0], p[1]]); if (hist.length > 6) hist.shift();
+    panoReq();
+  }, {passive: false});
+  const end = e => {
+    clearTimeout(lp);
+    if (e.touches && e.touches.length >= 1) { if (e.touches.length === 1) { pin = null; last = pt(e); } return; }
+    PV.touching = false;
+    if (pin) { pin = null; return; }
+    if (!moved && Date.now() - t0 < 400) {               // タップ: ボタンを隠す・出す
+      document.querySelectorAll("#pano .pbar, #pano .pbtm").forEach(el => { el.style.visibility = el.style.visibility === "hidden" ? "" : "hidden"; });
+      return;
+    }
+    if (moved && !PV.gyro && hist.length >= 2) {         // 指を離したあと少し滑る
+      const a = hist[0], b = hist[hist.length - 1], dt = Math.max(16, b[0] - a[0]);
+      if (Date.now() - b[0] < 80) {
+        const k = PV.fov / (cv.clientHeight || innerHeight);
+        PV.vx = (b[1] - a[1]) / dt * 16 * k; PV.vy = (b[2] - a[2]) / dt * 16 * k; panoReq();
+      }
+    }
+    last = null;
+  };
+  cv.addEventListener("touchend", end); cv.addEventListener("touchcancel", end);
+  // パソコンで試すとき用(マウスでドラッグ)
+  let md = null;
+  cv.addEventListener("mousedown", e => { md = [e.clientX, e.clientY]; });
+  window.addEventListener("mousemove", e => {
+    if (!md || $("pano").hidden) return;
+    const k = PV.fov / (cv.clientHeight || innerHeight);
+    PV.yaw += (e.clientX - md[0]) * k; PV.pitch = Math.max(-1.5, Math.min(1.5, PV.pitch + (e.clientY - md[1]) * k));
+    md = [e.clientX, e.clientY]; panoReq();
+  });
+  window.addEventListener("mouseup", () => { md = null; });
+  cv.addEventListener("wheel", e => { e.preventDefault(); PV.fov = Math.max(0.35, Math.min(2.1, PV.fov * Math.exp(e.deltaY * 0.002))); panoReq(); }, {passive: false});
+  window.addEventListener("resize", () => { if (!$("pano").hidden) panoReq(); });
+})();
 // ---- 長押し(0.5 秒): プレビューを出さないモードで、全画面 → プレビュー
 let lpFired = false;
 function longPress(el, action) {
@@ -2939,6 +3264,7 @@ $("vimgbox").addEventListener("click", e => {
     openOriginal(it); return;                                // 動画は(小さな画像がなくても)元の動画を開いて再生する
   }
   if ((e.target !== $("vimg") && e.target !== $("vimgbox")) || !$("vimg").getAttribute("src")) return;
+  if (isPano(it)) { openPano(vlist, vi); return; }     // 360 度の写真: 見回せる表示で
   $("fsimg").src = $("vimg").src;
   $("fsplay").hidden = $("vplay").hidden;
   fsReset(false);
