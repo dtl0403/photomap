@@ -895,6 +895,10 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #vvbig { pointer-events: none; position: absolute; left: 50%; top: calc(50% - 24px); transform: translate(-50%, -50%); width: 72px; height: 72px; border-radius: 50%; border: 0; background: rgba(0,0,0,.5); z-index: 2; }
 #vvbig::after { content: ""; position: absolute; left: 28px; top: 20px; border-left: 25px solid #fff; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
 #vvbig[hidden] { display: none; }
+.vz-seektip { position: absolute; top: 50%; left: 12%; transform: translateY(-50%); z-index: 3; pointer-events: none; padding: 10px 16px; border-radius: 22px;
+              background: rgba(0,0,0,.55); color: #fff; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vz-seektip.r { left: auto; right: 12%; }
+.vz-seektip[hidden] { display: none; }
 .vz-box { position: absolute; left: 0; right: 0; top: 0; bottom: 48px; overflow: hidden; touch-action: none; background: #000; }
 .vz-box video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; background: #000; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
 .vz-ctl { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #111; color: #fff; font: 13px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
@@ -903,6 +907,8 @@ html, button, a, input, select, label { touch-action: manipulation; }
 .vz-ctl .vz-seek { flex: 1; min-width: 60px; accent-color: #fff; }
 .vz-ctl [hidden] { display: none; }
 
+.vinfo .acts .ico { min-width: 44px; justify-content: center; padding: 0 10px; }
+#vdel { color: #ff8a80; }
 #vrot { min-width: 44px; justify-content: center; padding: 0 10px !important; }
 #vrot[hidden] { display: none !important; }
 #vprops { min-width: 44px; justify-content: center; font-size: 20px !important; font-weight: 800; letter-spacing: 1px; }
@@ -967,6 +973,11 @@ html, button, a, input, select, label { touch-action: manipulation; }
 #toast[hidden] { display: none !important; }
 #loading { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
 #loading[hidden] { display: none !important; }
+#askdel { position: fixed; inset: 0; z-index: 2700; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#askdel[hidden] { display: none !important; }
+#askdel .box { background: var(--bg); color: var(--fg); padding: 18px; border-radius: 14px; box-shadow: var(--shadow); max-width: 420px; width: 100%; box-sizing: border-box; }
+#askdel h2 { margin: 0 0 8px; font-size: 17px; word-break: break-all; }
+#askdel p { margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: var(--sub); }
 #resume, #askrem { position: fixed; inset: 0; z-index: 2600; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
 #resume[hidden], #askrem[hidden] { display: none !important; }
 #resume .box, #askrem .box { background: var(--bg); color: var(--fg); padding: 18px; border-radius: 14px; box-shadow: var(--shadow); max-width: 420px; width: 100%; box-sizing: border-box; }
@@ -1067,9 +1078,10 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <div class="meta" id="vmeta"></div>
     <div class="acts">
       <a id="vopen" class="open" target="_blank" rel="noopener">元のファイルを開く</a>
-      <a id="vapple" target="_blank" rel="noopener">Apple マップ</a>
       <a id="vgoogle" target="_blank" rel="noopener">Google マップ</a>
       <button type="button" id="vrot" aria-label="時計回りに90度回す" title="時計回りに90度回す"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9" width="10.5" height="11.5" rx="1.6"/><path d="M10.5 3.6a8.6 8.6 0 0 1 9.4 8.2"/><path d="M22.2 9.4l-2.3 2.6-2.6-2.3"/></svg></button>
+      <button type="button" id="vsave" class="ico" aria-label="iPhone の写真に保存" title="iPhone の写真に保存"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 15.5v3.2a1.8 1.8 0 0 0 1.8 1.8h11.4a1.8 1.8 0 0 0 1.8-1.8v-3.2"/></svg></button>
+      <button type="button" id="vdel" class="ico" aria-label="削除" title="削除"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16"/><path d="M9.5 6.5V4.8a1.3 1.3 0 0 1 1.3-1.3h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7"/><path d="M6.2 6.5l.9 12.3a1.8 1.8 0 0 0 1.8 1.7h6.2a1.8 1.8 0 0 0 1.8-1.7l.9-12.3"/><path d="M10 10.5v6"/><path d="M14 10.5v6"/></svg></button>
       <button type="button" id="vprops" aria-label="詳しい情報" title="詳しい情報">…</button>
     </div>
   </div>
@@ -1117,6 +1129,8 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <label class="opt"><input type="radio" name="remmode" value="never" id="rm-never"><span><b>覚えない</b>(容量を使わない・毎回ファイルを選ぶ)</span></label>
     <label class="opt"><input type="checkbox" id="remvid"><span><b>動画(.pvid)も覚える</b>(オフにすると地図と写真だけを覚えて容量を節約します。動画は元のファイルを開いて見ます)</span></label>
     <div class="row"><button type="button" class="btn" id="forgetvid">覚えている動画だけ消す</button><button type="button" class="btn" id="forget">覚えているデータを消す</button></div>
+    <p class="muted" id="delinfo" style="margin-top:8px"></p>
+    <div class="row" id="delrow" hidden><button type="button" class="btn" id="undel">削除した写真・動画を元に戻す</button></div>
     <div class="row" style="margin-top:8px"><button type="button" class="btn" id="devbtn" aria-expanded="false" aria-controls="devtools">開発者用ツール</button></div>
     <div id="devtools" hidden>
     <h3>動作の診断(一覧が重いときの原因調べ)</h3>
@@ -1128,6 +1142,13 @@ html, button, a, input, select, label { touch-action: manipulation; }
 </div>
 <div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
+<div id="askdel" hidden role="dialog" aria-modal="true" aria-labelledby="deltitle">
+  <div class="box">
+    <h2 id="deltitle">削除しますか？</h2>
+    <p>この写真マップから消して、この iPhone に覚えているデータからも取り除きます(その分の容量が空きます)。<br><b>パソコンの元のファイルと、iPhone の「写真」アプリの写真は消えません。</b></p>
+    <div class="row"><button type="button" class="btn" id="delno">やめる</button><button type="button" class="btn primary" id="delyes" style="background:#c62828;border-color:#c62828">削除する</button></div>
+  </div>
+</div>
 <div id="askrem" hidden role="dialog" aria-modal="true" aria-labelledby="artitle">
   <div class="box">
     <h2 id="artitle">次回すぐ開けるように覚えますか？</h2>
@@ -1159,6 +1180,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("pmap." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("pmap." + k, JSON.stringify(v)); } catch (e) {} }
 };
+const DEL = new Set(store.get("del", []));     // 削除した写真・動画("フォルダ/ファイル名")
 let toastT;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
 
@@ -1633,6 +1655,7 @@ $("q").addEventListener("input", () => { clearTimeout(qT); qT = setTimeout(() =>
 $("fab").onclick = () => openSheet(shown.length === ds.items.length ? `すべて ${shown.length.toLocaleString()} 件` : `絞り込み結果 ${shown.length.toLocaleString()} 件`, shown);
 
 function useDataset(d) {
+  if (!d.sample && DEL.size) d.items = d.items.filter(it => !DEL.has(vkey(it)));   // 削除したものは出さない
   ds = d;
   urlCache.forEach(p => p.then(u => u && u.startsWith("blob:") && URL.revokeObjectURL(u)));
   urlCache.clear();
@@ -1729,7 +1752,7 @@ $("remvid").addEventListener("change", async () => {
   setRemVid($("remvid").checked);
   // 覚えているものに合わせる(オフ → 動画を消す / オン → いま開いている動画を覚える)
   const m = await idb.get("meta").catch(() => null);
-  if (!m || !CURPACK || m.name !== CURPACK.name || m.size !== CURPACK.size) return;
+  if (!m || !CURPACK || m.name !== CURPACK.name || (m.size !== CURPACK.size && m.csize !== CURPACK.size)) return;
   if (!remVid && m.vnames && m.vnames.length) { await forgetVideos(); toast("覚えていた動画を消しました"); }
   else if (remVid && VFILES.length) { await saveVideos(VFILES); toast("いま開いている動画も覚えました"); }
 });
@@ -1738,7 +1761,7 @@ async function saveVideos(fs) {
     const m = await idb.get("meta");
     if (!m) return;
     await idb.set("vblobs", fs);
-    Object.assign(m, {vsig: vsig(fs), vnames: fs.map(f => f.name), vsize: sumSize(fs)});
+    Object.assign(m, {vsig: vsig(fs), vnames: fs.map(f => f.name), vsize: sumSize(fs)}); delete m.vcsize;
     await idb.set("meta", m);
   } catch (e) { toast("この iPhone の空きが足りず、動画を覚えられませんでした"); }
   showSavedInfo();
@@ -1775,6 +1798,7 @@ async function openPack(file, label, remember, vfiles = []) {
     $("loading").hidden = true;
     restoreView();
     if (remember) maybeRemember(file, d, vfiles);
+    if (DEL.size) scheduleCompact(remember ? 15000 : 4000);   // 覚えているデータに、削除したものが残っていれば取り除く
     return true;
   } catch (err) {
     toast(err.message || "読み込めませんでした");
@@ -1837,7 +1861,7 @@ $("forget").onclick = async () => {
 async function showSavedInfo() {
   let m = null;
   try { m = await idb.get("meta"); } catch (e) {}
-  $("savedinfo").textContent = m ? `いま覚えているもの: ${m.root}(${m.count.toLocaleString()} 件・${sizeText(m.size + (m.vsize || 0))}` +
+  $("savedinfo").textContent = m ? `いま覚えているもの: ${m.root}(${m.count.toLocaleString()} 件・${sizeText((m.csize || m.size) + (m.vcsize != null ? m.vcsize : (m.vsize || 0)))}` +
     (m.vnames && m.vnames.length ? `・動画のファイル ${m.vnames.length} 個` : "") + ")" : "覚えているデータはありません";
   updateVidInfo();
 }
@@ -2370,8 +2394,7 @@ async function showV() {
   $("vname").textContent = it.n;
   if (it.k === "動画" && durOf(it)) $("vname").insertAdjacentHTML("beforeend", `<span class="vdu">${durText2(durOf(it))}</span>`);
   $("vmeta").textContent = `${it.d || "撮影日時不明"} ・ ${it.g === false ? "位置情報なし" : (it.a || "住所不明")}`;
-  $("vapple").hidden = $("vgoogle").hidden = it.g === false;
-  $("vapple").href = `https://maps.apple.com/?ll=${it.la},${it.lo}&q=${encodeURIComponent(it.n)}`;
+  $("vgoogle").hidden = it.g === false;
   $("vopen").href = ds.sample ? "#" : (openURL(it) || "#");
   $("vgoogle").href = `https://www.google.com/maps?q=${it.la},${it.lo}`;
   stopVid();
@@ -2396,6 +2419,7 @@ async function showV() {
     $("fsplay").hidden = it.k !== "動画";
     prefetchAround();
   }
+  if (vlist[vi] === it) prepSave(it);
 }
 let vidURL = null, autoPlay = false, wantPlay = "";
 // 動画の拡大・縮小(ピンチ)、拡大中のドラッグでの移動、ダブルタップで拡大/元に戻す、タップで再生(一時停止は再生バーで)。
@@ -2503,12 +2527,29 @@ function VZoom(box, vid, ctl, o) {
   ["gesturestart", "gesturechange", "gestureend"].forEach(t => box.addEventListener(t, e => e.preventDefault()));
   // タップ: 止まっていればすぐ再生(待たない。一時停止は再生バーのボタンで)、ダブルタップ: 拡大/元に戻す
   let last = 0, tapTimer = null;
+  let lastPlaying = false, seekUntil = 0, seekSum = 0, seekTimer = null;
+  const seekTip = document.createElement("div"); seekTip.className = "vz-seektip"; seekTip.hidden = true;
+  box.parentNode.appendChild(seekTip);
+  function seekBy(sec) {
+    const d = Number.isFinite(vid.duration) ? vid.duration : Infinity;
+    vid.currentTime = Math.max(0, Math.min(d - 0.1, vid.currentTime + sec));
+    seekSum = (seekUntil > Date.now() && Math.sign(seekSum) === Math.sign(sec)) ? seekSum + sec : sec;
+    seekUntil = Date.now() + 700;
+    seekTip.textContent = seekSum > 0 ? `${seekSum}秒 ▶▶` : `◀◀ ${-seekSum}秒`;
+    seekTip.classList.toggle("r", sec > 0); seekTip.hidden = false;
+    clearTimeout(seekTimer); seekTimer = setTimeout(() => { seekTip.hidden = true; }, 700);
+  }
   box.addEventListener("click", e => {
     e.stopPropagation();
     if (block) return;
     const now = Date.now(), r = box.getBoundingClientRect();
+    const right = e.clientX > r.left + r.width / 2;
+    if (now < seekUntil && !vid.paused) {        // 10 秒送り・戻しの続き: 続けてタップするたびにさらに 10 秒
+      clearTimeout(tapTimer); last = 0; seekBy(right ? 10 : -10); return;
+    }
     if (now - last < 300) {
       last = 0; clearTimeout(tapTimer);
+      if (lastPlaying) { seekBy(right ? 10 : -10); return; }   // 再生中のダブルタップ: 右半分 = 10 秒送り / 左半分 = 10 秒戻し
       if (zoomed()) reset(true);
       else {
         const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
@@ -2518,7 +2559,7 @@ function VZoom(box, vid, ctl, o) {
       }
       return;
     }
-    last = now;
+    last = now; lastPlaying = !vid.paused;
     if (vid.paused) { vid.play().catch(() => {}); return; }     // 止まっているとき: すぐ再生
     // 再生中: 1 回タップ(ダブルタップでなかったとき)を知らせる(全画面の切り替えなど)。拡大中は何もしない
     clearTimeout(tapTimer);
@@ -2618,6 +2659,154 @@ function flyBack(it) {
   };
   fly.addEventListener("transitionend", end); setTimeout(end, 450);
   return true;
+}
+// ---- iPhone の「写真」に保存: 共有シート(「画像を保存」「ビデオを保存」)を出す。
+//      保存されるのは、この写真マップに入っている iPhone 用の写真(縮小したもの)・動画(圧縮したもの)。回した写真は回した向きで
+let saveFile = null, saveSeq = 0;
+function prepSave(it) {                       // 押したときすぐ共有できるよう、表示したときに用意しておく
+  const seq = ++saveSeq; saveFile = null;
+  if (!it || ds.sample) return;
+  const base = it.n.replace(/\.[^.]+$/, "");
+  const ve = vget(it);
+  if (ve) { saveFile = new File([ve.file.slice(ve.base + ve.o, ve.base + ve.o + ve.l)], base + ".mp4", {type: "video/mp4"}); return; }
+  if (it.k === "動画") return;
+  const src = $("vimg").getAttribute("src");
+  if (!src) return;
+  fetch(src).then(r => r.blob()).then(b => { if (seq === saveSeq) saveFile = new File([b], base + ".jpg", {type: "image/jpeg"}); }).catch(() => {});
+}
+$("vsave").onclick = async () => {
+  const it = vlist[vi];
+  if (ds.sample) { toast("見本のデータは保存できません"); return; }
+  if (!saveFile) {
+    toast(it && it.k === "動画" && !vget(it) ? "この動画は iPhone 用の動画が入っていないので保存できません(「元のファイルを開く」から保存してください)" : "準備中です。少し待ってからもう一度押してください");
+    return;
+  }
+  const f = saveFile;
+  try {
+    if (navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f]}); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  const a = document.createElement("a"), u = URL.createObjectURL(f);    // 共有シートが使えないとき: ダウンロード(「ファイル」に入る)
+  a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+};
+// ---- 削除: この写真マップから消し、この iPhone に覚えているデータ(.pmap・.pvid の写し)からも取り除いて容量を空ける。
+//      パソコンの元のファイル・iPhone の「写真」は消さない。消したものは覚えておき、.pmap を読み込み直しても出さない
+function showDelInfo() {
+  $("delinfo").textContent = DEL.size ? `削除した写真・動画: ${DEL.size.toLocaleString()} 件(パソコンの元のファイルは残っています)` : "";
+  $("delrow").hidden = !DEL.size;
+}
+showDelInfo();
+$("vdel").onclick = () => {
+  const it = vlist[vi];
+  if (!it) return;
+  if (ds.sample) { toast("見本のデータは削除できません"); return; }
+  $("deltitle").textContent = `「${it.n}」を削除しますか？`;
+  $("askdel").hidden = false;
+};
+$("delno").onclick = () => { $("askdel").hidden = true; };
+$("delyes").onclick = () => { $("askdel").hidden = true; deleteItem(vlist[vi]); };
+function deleteItem(it) {
+  if (!it) return;
+  DEL.add(vkey(it)); store.set("del", [...DEL]); showDelInfo();
+  stopVid();
+  const arr = vlist.filter(x => x !== it), ni = Math.min(vi, arr.length - 1);
+  const ix = ds.items.indexOf(it);
+  if (ix >= 0) ds.items.splice(ix, 1);
+  ds.items.forEach((x, i) => { x.i = i; });
+  urlCache.delete(it); PRE.delete(it);
+  if (!ds.sample) $("dsname").textContent = `${ds.root} ・ ${ds.items.length.toLocaleString()} 件` + (ds.made ? ` ・ ${ds.made} 作成` : "");
+  const sheetOpen = !$("sheet").hidden, top = grid.scrollTop, inList = list.includes(it);
+  apply(false);                                // 地図・件数・一覧(一覧表示のとき)を作り直す
+  if (viewMode !== "list" && sheetOpen && inList) { sheetBase = sheetBase.filter(x => x !== it); list = list.filter(x => x !== it); renderList(true); }
+  if (sheetOpen) grid.scrollTop = top;
+  if (!arr.length) { $("viewer").hidden = true; setVfull(false); }
+  else { vlist = arr; vi = ni; showV(); }
+  toast("削除しました");
+  scheduleCompact();
+}
+$("undel").onclick = () => {
+  DEL.clear(); store.set("del", []); showDelInfo();
+  toast("元に戻しました。覚えているデータからは取り除いてあるので、パソコンの .pmap(と .pvid)を［ファイルを開く］で選び直すと表示されます");
+};
+// 覚えているデータから、削除したものを取り除いて作り直す(続けて削除したときは、まとめて 1 回)
+let compactT = null, compacting = false;
+function scheduleCompact(ms = 6000) { clearTimeout(compactT); compactT = setTimeout(compactSaved, ms); }
+const be32 = n => new Uint8Array([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+async function rebuildPack(blob, magic, keep) {
+  const head = new Uint8Array(await blob.slice(0, 10).arrayBuffer());
+  if (String.fromCharCode(...head.slice(0, 6)) !== magic) return null;
+  const len = ((head[6] << 24) | (head[7] << 16) | (head[8] << 8) | head[9]) >>> 0;
+  const meta = JSON.parse(await blob.slice(10, 10 + len).text());
+  const base = 10 + len, kept = meta.items.filter(keep);
+  if (kept.length === meta.items.length) return null;          // 取り除くものがない
+  const rs = kept.filter(it => it.l).map(it => [it.o, it.o + it.l]).sort((a, b) => a[0] - b[0]);
+  const runs = [];                                              // つながっている部分はまとめて写す
+  for (const [a, b] of rs) { const r = runs[runs.length - 1]; if (r && a <= r[1]) r[1] = Math.max(r[1], b); else runs.push([a, b]); }
+  let pos = 0;
+  for (const r of runs) { r[2] = pos; pos += r[1] - r[0]; }
+  const find = o => { let lo = 0, hi = runs.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (runs[m][0] <= o) lo = m; else hi = m - 1; } return runs[lo]; };
+  kept.forEach(it => { if (it.l) { const r = find(it.o); it.o = r[2] + it.o - r[0]; } });
+  meta.items = kept;
+  const js = new TextEncoder().encode(JSON.stringify(meta));
+  return {blob: new Blob([magic, be32(js.length), js, ...runs.map(r => blob.slice(base + r[0], base + r[1]))]), meta, base: 10 + js.length};
+}
+async function compactSaved() {
+  if (!DEL.size) return;
+  if (compacting) { scheduleCompact(3000); return; }
+  compacting = true;
+  const keep = it => !DEL.has(vkey(it));
+  let freed = 0, said = false;
+  const say = () => { if (!said) { said = true; toast("削除した分の容量を空けています…"); } };
+  try {
+    const m = await idb.get("meta").catch(() => null);
+    if (!m) return;
+    const blob = await idb.get("blob").catch(() => null);
+    if (blob) {
+      const r = await rebuildPack(blob, "PMAP1\n", keep);
+      if (r) {
+        say();
+        const isCur = CURPACK && CURPACK.size === blob.size;     // いま開いているのが、覚えているデータ
+        await idb.set("blob", new File([r.blob], m.name));
+        freed += blob.size - r.blob.size;
+        m.csize = r.blob.size; m.count = r.meta.items.length;
+        await idb.set("meta", m);
+        if (isCur && ds && !ds.sample) {                         // 開いている写真の読み出し先を、作り直したものに付け替える
+          const nb = await idb.get("blob"), nf = nb instanceof File ? nb : new File([nb], m.name), pos = new Map(r.meta.items.map(x => [vkey(x), x]));
+          ds.items.forEach(it => {
+            const x = pos.get(vkey(it)); if (!x) return;
+            it.src = () => Promise.resolve(x.l ? URL.createObjectURL(nf.slice(r.base + x.o, r.base + x.o + x.l, "image/jpeg")) : "");
+          });
+          urlCache.clear(); PRE.clear();
+          SMALL.forEach((p, k) => p.then(u => { if (!SMALL_OWN.has(u)) SMALL.delete(k); }));
+          CURPACK = nf;
+        }
+      }
+    }
+    const vb = await idb.get("vblobs").catch(() => null);
+    if (vb && vb.length) {
+      const nv = []; let changed = false;
+      for (let i = 0; i < vb.length; i++) {
+        const b = vb[i], name = (m.vnames || [])[i] || b.name || `video${i}.pvid`;
+        const r = await rebuildPack(b, "PVID1\n", keep);
+        if (r) { say(); changed = true; freed += b.size - r.blob.size; nv.push(new File([r.blob], name)); } else nv.push(b);
+      }
+      if (changed) {
+        const isCurV = VFILES.length && VFILES.every(f => vb.some(b => b.size === f.size));
+        await idb.set("vblobs", nv);
+        m.vcsize = sumSize(nv);
+        await idb.set("meta", m);
+        if (isCurV) {                                            // 再生する動画の読み出し先も付け替える
+          const st = await idb.get("vblobs");
+          VIDX.clear(); VBYNAME.clear(); VFILES = [];
+          await attachVideos(st.map((b, i) => b instanceof File ? b : new File([b], (m.vnames || [])[i] || `video${i}.pvid`)));
+        }
+      }
+    }
+    if (said) toast(`削除した分の容量を空けました(約 ${freed >= 1e6 ? sizeText(freed) : Math.max(1, Math.round(freed / 1e3)) + " KB"})`);
+    showSavedInfo();
+  } catch (e) {
+    toast("容量を空けられませんでした(iPhone の空きが足りないかもしれません)。次に開いたときにもう一度試します");
+  } finally { compacting = false; }
 }
 // ---- 長押し(0.5 秒): プレビューを出さないモードで、全画面 → プレビュー
 let lpFired = false;
@@ -2730,6 +2919,7 @@ async function rotateBy(delta) {             // delta: 90 = 時計回り / -90 =
   if (!$("fs").hidden) { $("fsimg").src = $("vimg").src; fsReset(false); }
   const ti = grid.querySelector(`.tile[data-k="${list.indexOf(it)}"] img`);
   if (ti) tileRot(ti, it);
+  prepSave(it);
 }
 $("vrot").onclick = () => rotateBy(90);
 document.addEventListener("keydown", e => {
