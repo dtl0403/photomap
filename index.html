@@ -875,8 +875,9 @@ html, button, a, input, select, label { touch-action: manipulation; }
 .tile .play::after { content: ""; position: absolute; left: 8px; top: 6px; border-left: 9px solid #fff; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
 .tile .p360 { position: absolute; right: 4px; top: 4px; font-size: 10.5px; line-height: 1; color: #fff; background: rgba(20,90,160,.85); padding: 3px 5px; border-radius: 4px; font-weight: 700; pointer-events: none; }
 @container (max-width: 60px) { .tile .p360 { padding: 2px 3px; font-size: 9px; } }
-#v360 { position: absolute; left: 10px; bottom: 10px; z-index: 2; pointer-events: none; color: #fff; background: rgba(20,90,160,.9); padding: 6px 10px; border-radius: 8px; font-size: 14px; font-weight: 700; }
-#v360[hidden] { display: none; }
+.ic360 { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; border-radius: 50%; background: rgba(0,0,0,.5);
+         display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2; }
+.ic360[hidden] { display: none; }
 #pano { position: fixed; inset: 0; z-index: 2450; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 #pano[hidden] { display: none; }
 #pa-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
@@ -1087,7 +1088,7 @@ html, button, a, input, select, label { touch-action: manipulation; }
     <button type="button" class="vbtn" id="vprev" aria-label="前へ">‹</button>
     <button type="button" class="vbtn" id="vnext" aria-label="次へ">›</button>
   </div>
-  <div id="vimgbox"><img id="vimg" alt=""><span id="v360" hidden>360° タップで見回す</span><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><button type="button" id="vvbig" aria-label="再生"></button><div class="vz-ctl" id="vvctl"></div></div></div>
+  <div id="vimgbox"><img id="vimg" alt=""><span id="v360" class="ic360" hidden><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><path d="M45 46.5c7.5-1.4 12.5-3.8 12.5-6.5 0-4.4-11.4-8-25.5-8S6.5 35.6 6.5 40s11.4 8 27.5 8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M31.5 43.5l4.5 4.5-4.5 4.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><text x="32" y="27" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="-apple-system,system-ui,sans-serif">360°</text></svg></span><span id="vplay" hidden></span><div id="vvwrap" hidden><div class="vz-box" id="vvbox"><video id="vvid" playsinline preload="auto"></video></div><button type="button" id="vvbig" aria-label="再生"></button><div class="vz-ctl" id="vvctl"></div></div></div>
   <div class="vinfo">
     <div class="nm" id="vname"></div>
     <div class="meta" id="vmeta"></div>
@@ -1160,9 +1161,9 @@ html, button, a, input, select, label { touch-action: manipulation; }
   <div class="pbar"><button type="button" class="vbtn" id="pa-close" aria-label="閉じる">✕</button><span class="ttl" id="pa-pos"></span>
     <button type="button" class="vbtn" id="pa-prev" aria-label="前へ">‹</button><button type="button" class="vbtn" id="pa-next" aria-label="次へ">›</button></div>
   <div id="pa-hint">ドラッグで見回す・ピンチで拡大</div>
-  <div class="pbtm"><button type="button" id="pa-gyro" aria-pressed="false">iPhone を傾けて見る</button><button type="button" id="pa-flat">ふつうに表示</button></div>
+  <div class="pbtm"><button type="button" id="pa-gyro" aria-pressed="false">iPhone を傾けて見る</button></div>
 </div>
-<div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span></div>
+<div id="fs" hidden role="dialog" aria-label="全画面表示(タップで戻る・ピンチで拡大)"><img id="fsimg" alt=""><span class="fsplay" id="fsplay" hidden></span><span id="fs360" class="ic360" hidden><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><path d="M45 46.5c7.5-1.4 12.5-3.8 12.5-6.5 0-4.4-11.4-8-25.5-8S6.5 35.6 6.5 40s11.4 8 27.5 8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M31.5 43.5l4.5 4.5-4.5 4.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><text x="32" y="27" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="-apple-system,system-ui,sans-serif">360°</text></svg></span></div>
 <div id="loading" hidden><div id="loadmsg">読み込んでいます…</div></div>
 <div id="askdel" hidden role="dialog" aria-modal="true" aria-labelledby="deltitle">
   <div class="box">
@@ -2363,7 +2364,6 @@ function tapItem(arr, k) {
     if (vget(it)) { openVideoFull(arr, k, false); return; }          // iPhone 用の動画: 全画面で止まった状態(タップで再生)
     vlist = arr; vi = k; openOriginal(it); return;                     // ない: 元のファイルを開く
   }
-  if (isPano(it)) { openPano(arr, k); return; }                         // 360 度の写真: 見回せる表示
   openFullscreen(arr, k);                                                // 写真: すぐ全画面
 }
 const isDirect = () => tapMode === "direct";
@@ -2379,7 +2379,6 @@ function navDirect(d) {
   const it = vlist[ni];
   if (it.k === "動画" && vget(it)) { if (!$("fs").hidden) closeFs(); openVideoFull(vlist, ni, false); return; }
   if (!$("viewer").hidden) { stopVid(); setVfull(false); $("viewer").hidden = true; }
-  if (isPano(it)) { if (!$("fs").hidden) closeFs(); openPano(vlist, ni); return; }
   openFullscreen(vlist, ni);
 }
 function openFullscreen(arr, k) {
@@ -2445,7 +2444,7 @@ async function showV() {
     fsReset(false);
     const fu = it.k !== "動画" && $("vimg").getAttribute("src") ? $("vimg").src : u;   // 回した写真は回した向きで
     if (fu) { if ($("fsimg").src !== fu) $("fsimg").src = fu; } else $("fsimg").removeAttribute("src");
-    $("fsplay").hidden = it.k !== "動画";
+    $("fsplay").hidden = it.k !== "動画"; $("fs360").hidden = !isPano(it);
     prefetchAround();
   }
   if (vlist[vi] === it) prepSave(it);
@@ -3026,23 +3025,17 @@ function closePano() {
   panoGyro(false);
   if (PV.raf) { cancelAnimationFrame(PV.raf); PV.raf = 0; }
 }
-function panoNav(d) {
+function panoNav(d) {                         // ‹ ›: 見回すのをやめて、下の画面(全画面・プレビュー)で前後へ
   const ni = vi + d;
   if (ni < 0 || ni >= vlist.length) return;
-  const it = vlist[ni];
-  if (isPano(it)) {
-    vi = ni; PV.yaw = 0; PV.pitch = 0; PV.vx = PV.vy = 0; PV.off = PV.gyro && PV.dev ? PV.off : 0;
-    if (!$("viewer").hidden) showV();
-    panoLoad(it); return;
-  }
   closePano();
-  if (!$("viewer").hidden) { vi = ni; showV(); }        // プレビューから来たとき: プレビューで次へ
-  else navDirect(d);                                     // 一覧から来たとき: 全画面で次へ
+  if (!$("fs").hidden && $("viewer").hidden) navDirect(d);
+  else if (!$("fs").hidden) (d > 0 ? $("vnext") : $("vprev")).click();
+  else if (!$("viewer").hidden) { vi = ni; showV(); }
 }
 $("pa-close").onclick = () => closePano();
 $("pa-prev").onclick = () => panoNav(-1);
 $("pa-next").onclick = () => panoNav(1);
-$("pa-flat").onclick = () => { closePano(); openFullscreen(vlist, vi); };   // 今回だけふつうの写真として表示
 // iPhone を傾けて見回す(初めてのときに iPhone の許可を求める)
 function onDevOri(e) { if (e.alpha == null && e.beta == null) return; PV.dev = devMatrix(e); panoReq(); }
 async function panoGyro(on) {
@@ -3087,7 +3080,7 @@ $("pa-gyro").onclick = () => panoGyro(!PV.gyro);
     clearTimeout(lp);
     if (e.touches.length >= 2) { pin = {d: dist(e), f: PV.fov}; last = null; moved = true; return; }
     last = pt(e); moved = false; t0 = Date.now(); hist = [[t0, last[0], last[1]]];
-    if (isDirect()) lp = setTimeout(() => { if (!moved) { closePano(); openViewer(vlist, vi); } }, 500);
+    if (isDirect()) lp = setTimeout(() => { if (!moved) { closePano(); closeFs(); openViewer(vlist, vi); } }, 500);
   }, {passive: false});
   cv.addEventListener("touchmove", e => {
     e.preventDefault();
@@ -3266,7 +3259,7 @@ $("vimgbox").addEventListener("click", e => {
   if ((e.target !== $("vimg") && e.target !== $("vimgbox")) || !$("vimg").getAttribute("src")) return;
   if (isPano(it)) { openPano(vlist, vi); return; }     // 360 度の写真: 見回せる表示で
   $("fsimg").src = $("vimg").src;
-  $("fsplay").hidden = $("vplay").hidden;
+  $("fsplay").hidden = $("vplay").hidden; $("fs360").hidden = true;
   fsReset(false);
   $("fs").hidden = false;
 });
@@ -3319,7 +3312,10 @@ $("fs").addEventListener("click", e => {
     fsTapTimer = setTimeout(() => {
       const n = fsTaps; fsTaps = 0;
       if (n === 2) { if (zoomed()) fsReset(true); else fsZoomAt(fsTapX, fsTapY, 2.5, true); }
-      else if (n === 1 && !zoomed()) { if ($("viewer").hidden) flyBack(vlist[vi]); closeFs(); }
+      else if (n === 1 && !zoomed()) {
+        if (isPano(vlist[vi])) { openPano(vlist, vi); return; }      // 360 度の写真: もう 1 回タップで見回す
+        if ($("viewer").hidden) flyBack(vlist[vi]); closeFs();
+      }
     }, 300);
     return;
   }
@@ -3333,6 +3329,7 @@ $("fs").addEventListener("click", e => {
   if (zoomed()) return;                          // 拡大中の1回タップでは閉じない
   clearTimeout(fsTapTimer);
   fsTapTimer = setTimeout(() => {
+    if (isPano(vlist[vi])) { openPano(vlist, vi); return; }
     if ($("viewer").hidden) flyBack(vlist[vi]);  // 一覧へ戻る(小さくなって一覧の場所へ)
     closeFs();
   }, 300);
